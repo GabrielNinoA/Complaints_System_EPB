@@ -39,6 +39,10 @@ router.get('/health', asyncHandler(estadisticasController.healthCheck));
 
 router.get('/entidades', 
     consultLimiter,
+    (req, res, next) => {
+        console.log('🔍 [ROUTE] Ruta /api/entidades ejecutándose...');
+        next();
+    },
     asyncHandler(entidadesController.getAllEntidades)
 );
 

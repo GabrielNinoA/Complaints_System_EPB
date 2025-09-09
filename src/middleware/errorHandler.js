@@ -102,6 +102,7 @@ function generateErrorId() {
 
 // Middleware para capturar errores asíncronos
 const asyncHandler = (fn) => (req, res, next) => {
+    console.log('🔍 [ASYNC] AsyncHandler ejecutándose para:', req.path);
     Promise.resolve(fn(req, res, next)).catch(next);
 };
 
