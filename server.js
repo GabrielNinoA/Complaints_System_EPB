@@ -75,7 +75,16 @@ if (process.env.NODE_ENV === 'production') {
     const path = require('path');
     
     // Servir archivos estáticos desde frontend/build
-    app.use(express.static(path.join(__dirname, 'frontend/build')));
+    app.use(express.static(path.join(__dirname, 'frontend/build'), {
+    setHeaders: (res, path) => {
+        if (path.endsWith('.css')) {
+            res.setHeader('Content-Type', 'text/css');
+        }
+        if (path.endsWith('.js')) {
+            res.setHeader('Content-Type', 'application/javascript');
+        }
+    }
+}));
     
     // Manejar rutas del frontend (SPA routing)
     app.get('/app/*', (req, res) => {
