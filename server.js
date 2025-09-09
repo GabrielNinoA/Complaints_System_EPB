@@ -1,4 +1,4 @@
-require('dotenv').config();
+sirequire('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -15,23 +15,23 @@ const PORT = process.env.PORT || 3000;
 // Compresión de respuestas
 app.use(compression());
 
-// Configuración de seguridad con Helmet
-app.use(helmet({
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-            scriptSrc: ["'self'", "'unsafe-inline'"],
-            imgSrc: ["'self'", "data:", "https:"],
-            connectSrc: ["'self'"],
-            fontSrc: ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
-            objectSrc: ["'none'"],
-            mediaSrc: ["'self'"],
-            frameSrc: ["'none'"]
-        }
-    },
-    crossOriginEmbedderPolicy: false
-}));
+// Configuración de seguridad con Helmet - DESACTIVADO TEMPORALMENTE PARA TESTING
+// app.use(helmet({
+//     contentSecurityPolicy: {
+//         directives: {
+//             defaultSrc: ["'self'"],
+//             styleSrc: ["'self'", "'unsafe-inline'"],
+//             scriptSrc: ["'self'"],
+//             imgSrc: ["'self'", "data:", "https:"],
+//             connectSrc: ["'self'"],
+//             fontSrc: ["'self'"],
+//             objectSrc: ["'none'"],
+//             mediaSrc: ["'self'"],
+//             frameSrc: ["'none'"]
+//         }
+//     },
+//     crossOriginEmbedderPolicy: false
+// }));
 
 // Configuración de CORS
 const corsOptions = {
@@ -74,17 +74,20 @@ app.set('trust proxy', 1);
 if (process.env.NODE_ENV === 'production') {
     const path = require('path');
     
-    // Servir archivos estáticos desde frontend/build
+    // Servir archivos estáticos desde frontend/build con configuración de MIME types
     app.use(express.static(path.join(__dirname, 'frontend/build'), {
-    setHeaders: (res, path) => {
-        if (path.endsWith('.css')) {
-            res.setHeader('Content-Type', 'text/css');
+        setHeaders: (res, filePath) => {
+            if (filePath.endsWith('.css')) {
+                res.setHeader('Content-Type', 'text/css');
+            }
+            if (filePath.endsWith('.js')) {
+                res.setHeader('Content-Type', 'application/javascript');
+            }
+            if (filePath.endsWith('.html')) {
+                res.setHeader('Content-Type', 'text/html');
+            }
         }
-        if (path.endsWith('.js')) {
-            res.setHeader('Content-Type', 'application/javascript');
-        }
-    }
-}));
+    }));
     
     // Manejar rutas del frontend (SPA routing)
     app.get('/app/*', (req, res) => {
