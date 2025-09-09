@@ -5,9 +5,12 @@ class EntidadesController {
     // Obtener todas las entidades activas
     async getAllEntidades(req, res) {
         try {
+            console.log('🔍 Iniciando getAllEntidades...');
             const startTime = Date.now();
             
+            console.log('🔍 Llamando a dbService.getAllEntidades()...');
             const entidades = await dbService.getAllEntidades();
+            console.log('✅ Entidades obtenidas:', entidades.length);
             
             res.json({
                 success: true,
@@ -18,9 +21,11 @@ class EntidadesController {
             });
         } catch (error) {
             console.error('❌ Error obteniendo entidades:', error.message);
+            console.error('❌ Stack trace:', error.stack);
             res.status(500).json({
                 success: false,
                 message: 'Error obteniendo entidades',
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
                 timestamp: new Date().toISOString()
             });
         }

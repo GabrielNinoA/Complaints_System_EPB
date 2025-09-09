@@ -152,6 +152,18 @@ app.use(errorHandler);
 
 async function startServer() {
     try {
+        // Verificar conexión a base de datos
+        const dbConfig = require('./src/config/database');
+        console.log('🔍 Verificando conexión a base de datos...');
+        console.log('🔧 Configuración DB:', dbConfig.getConnectionInfo());
+        
+        const dbConnected = await dbConfig.testConnection();
+        if (!dbConnected) {
+            console.warn('⚠️  No se pudo conectar a la base de datos, pero continuando...');
+        } else {
+            console.log('✅ Conexión a base de datos exitosa');
+        }
+        
         const server = app.listen(PORT, '0.0.0.0', () => {
             console.log('\n🚀 ===================================');
             console.log('   SISTEMA DE QUEJAS BOYACÁ v2.0');
