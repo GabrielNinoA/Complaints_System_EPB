@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
+// Importar iconos directamente desde src/assets
+import iconSearch from '../assets/icon-search.png';
+import iconWrite from '../assets/icon-write.png';
+import iconCheck from '../assets/icon-check.png';
+
 const Layout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -11,19 +16,19 @@ const Layout = ({ children }) => {
       path: '/consultar-quejas', 
       label: 'Consultar quejas', 
       key: 'consultar',
-      icon: '/resources/icon-search.png'
+      icon: iconSearch
     },
     { 
       path: '/escribir-queja', 
       label: 'Escribir queja', 
       key: 'escribir',
-      icon: '/resources/icon-write.png'
+      icon: iconWrite
     },
     { 
       path: '/reportes', 
       label: 'Generar reporte', 
       key: 'reportes',
-      icon: '/resources/icon-check.png'
+      icon: iconCheck
     }
   ];
 
