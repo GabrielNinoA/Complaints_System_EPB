@@ -11,19 +11,19 @@ const Layout = ({ children }) => {
       path: '/consultar-quejas', 
       label: 'Consultar quejas', 
       key: 'consultar',
-      icon: process.env.PUBLIC_URL + '/resources/icon-search.png'
+      icon: '/resources/icon-search.png'
     },
     { 
       path: '/escribir-queja', 
       label: 'Escribir queja', 
       key: 'escribir',
-      icon: process.env.PUBLIC_URL + '/resources/icon-write.png'
+      icon: '/resources/icon-write.png'
     },
     { 
       path: '/reportes', 
       label: 'Generar reporte', 
       key: 'reportes',
-      icon: process.env.PUBLIC_URL + '/resources/icon-check.png'
+      icon: '/resources/icon-check.png'
     }
   ];
 
