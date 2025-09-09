@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Dropdown from '../components/Dropdown';
-import MathCaptcha from '../components/MathCaptcha';
 
 const WriteComplaint = () => {
   const navigate = useNavigate();
   const [entities, setEntities] = useState([]);
   const [selectedEntity, setSelectedEntity] = useState(null);
   const [complaintText, setComplaintText] = useState('');
-  const [captchaValid, setCaptchaValid] = useState(false);
-  const [captchaReset, setCaptchaReset] = useState(0);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState(''); // 'success' or 'error'
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,12 +46,6 @@ const WriteComplaint = () => {
   }, []);
 
   const handleSave = () => {
-    if (!captchaValid) {
-      setMessage('Por favor, resuelve el captcha antes de continuar.');
-      setMessageType('error');
-      return;
-    }
-
     if (!selectedEntity) {
       setMessage('Por favor, selecciona una entidad.');
       setMessageType('error');
@@ -92,8 +83,6 @@ const WriteComplaint = () => {
       if (data.success) {
         setMessage('La queja ha sido registrada exitosamente');
         setMessageType('success');
-        // Reset captcha after successful submission
-        setCaptchaReset(prev => prev + 1);
         // Clear form
         setSelectedEntity(null);
         setComplaintText('');
@@ -150,13 +139,6 @@ const WriteComplaint = () => {
         )
       ),
       
-      React.createElement(MathCaptcha, {
-        onValidate: setCaptchaValid,
-        isValid: captchaValid,
-        resetTrigger: captchaReset,
-        darkTheme: true
-      }),
-      
       message && React.createElement('div', { 
         className: `message ${messageType}`
       }, message),
@@ -165,7 +147,7 @@ const WriteComplaint = () => {
         React.createElement('button', {
           className: 'form-button',
           onClick: handleSave,
-          disabled: !selectedEntity || validateComplaintText(complaintText) !== null || !captchaValid || isSubmitting
+          disabled: !selectedEntity || validateComplaintText(complaintText) !== null || isSubmitting
         }, isSubmitting ? 'Guardando...' : 'Guardar')
       )
   );

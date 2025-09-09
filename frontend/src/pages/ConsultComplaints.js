@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Dropdown from '../components/Dropdown';
-import MathCaptcha from '../components/MathCaptcha';
 
 const ConsultComplaints = () => {
   const navigate = useNavigate();
   const [entities, setEntities] = useState([]);
   const [selectedEntity, setSelectedEntity] = useState(null);
-  const [captchaValid, setCaptchaValid] = useState(false);
-  const [captchaReset, setCaptchaReset] = useState(0);
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState(''); // 'success' or 'error'
 
   useEffect(() => {
     // Fetch entities from the API
@@ -17,7 +16,6 @@ const ConsultComplaints = () => {
       .then(data => {
         if (data.success) {
           setEntities(data.data);
-          console.log('Entidades cargadas:', data.data);
         }
       })
       .catch(error => {
@@ -34,21 +32,19 @@ const ConsultComplaints = () => {
   }, []);
 
   const handleConsult = () => {
-    if (!captchaValid) {
-      console.log('Por favor, resuelve el captcha antes de continuar.');
+    if (!selectedEntity) {
+      setMessage('Por favor, selecciona una entidad.');
+      setMessageType('error');
       return;
     }
 
-    if (selectedEntity) {
-      // Reset captcha after successful consultation
-      setCaptchaReset(prev => prev + 1);
-      navigate(`/quejas/${selectedEntity.id}`);
-    }
+    // Navigate to the complaints list for the selected entity
+    navigate(`/quejas/${selectedEntity.id}`);
   };
 
   return React.createElement('div', { className: 'page-container' },
     React.createElement('h1', { className: 'page-title' },
-      'Seleccione la entidad a consultar las quejas'
+      'Consultar quejas por entidad'
     ),
     
     React.createElement('div', { className: 'form-group' },
@@ -56,23 +52,20 @@ const ConsultComplaints = () => {
         options: entities,
         selectedOption: selectedEntity,
         onSelect: setSelectedEntity,
-        placeholder: 'Entidades',
+        placeholder: selectedEntity ? selectedEntity.nombre : 'Entidades',
         displayKey: 'nombre'
       })
     ),
     
-    React.createElement(MathCaptcha, {
-      onValidate: setCaptchaValid,
-      isValid: captchaValid,
-      resetTrigger: captchaReset,
-      darkTheme: true
-    }),
+    message && React.createElement('div', { 
+      className: `message ${messageType}`
+    }, message),
     
     React.createElement('div', { className: 'button-group' },
       React.createElement('button', {
-        className: 'consult-button',
+        className: 'form-button',
         onClick: handleConsult,
-        disabled: !selectedEntity || !captchaValid
+        disabled: !selectedEntity
       }, 'Consultar')
     )
   );
