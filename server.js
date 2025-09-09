@@ -1,4 +1,4 @@
-require('dotenv').config();
+sirequire('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -36,8 +36,8 @@ app.use(helmet({
 // Configuración de CORS
 const corsOptions = {
     origin: process.env.NODE_ENV === 'production' 
-        ? process.env.FRONTEND_URL?.split(',') || ['https://quejas-boyaca.onrender.com']
-        : true,
+        ? false // En producción, frontend y backend están en el mismo dominio
+        : ['http://localhost:3000', 'http://127.0.0.1:3000'], // En desarrollo, permitir frontend local
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -68,6 +68,21 @@ app.use(requestLogger);
 // Trust proxy para obtener IP real (necesario para Render)
 app.set('trust proxy', 1);
 
+// ==================== ARCHIVOS ESTÁTICOS ====================
+
+// Servir archivos estáticos del frontend (solo en producción)
+if (process.env.NODE_ENV === 'production') {
+    const path = require('path');
+    
+    // Servir archivos estáticos desde frontend/build
+    app.use(express.static(path.join(__dirname, 'frontend/build')));
+    
+    // Manejar rutas del frontend (SPA routing)
+    app.get('/app/*', (req, res) => {
+        res.sendFile(path.join(__dirname, 'frontend/build', 'index.html'));
+    });
+}
+
 // ==================== RUTAS ====================
 
 // Health check básico
@@ -85,17 +100,35 @@ app.use('/api', apiRoutes);
 
 // Ruta raíz
 app.get('/', (req, res) => {
-    res.json({
-        name: 'Sistema de Quejas Boyacá API',
-        version: require('./package.json').version,
-        status: 'running',
-        endpoints: {
-            health: '/health',
-            api: '/api',
-            docs: '/api/docs'
+    if (process.env.NODE_ENV === 'production') {
+        // En producción, redirigir a la aplicación frontend
+        res.redirect('/app');
+    } else {
+        // En desarrollo, mostrar info de la API
+        res.json({
+            name: 'Sistema de Quejas Boyacá API',
+            version: require('./package.json').version,
+            status: 'running',
+            endpoints: {
+                health: '/health',
+                api: '/api',
+                docs: '/api/docs',
+                app: '/app (solo en producción)'
+            }
+        });
+    }
+});
+
+// Catch-all handler para rutas del frontend (debe ir al final)
+if (process.env.NODE_ENV === 'production') {
+    const path = require('path');
+    app.get('*', (req, res) => {
+        // Evitar interceptar rutas de la API
+        if (!req.path.startsWith('/api') && !req.path.startsWith('/health')) {
+            res.sendFile(path.join(__dirname, 'frontend/build', 'index.html'));
         }
     });
-});
+}
 
 // ==================== MANEJO DE ERRORES ====================
 

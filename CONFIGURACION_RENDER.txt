@@ -1,0 +1,158 @@
+CONFIGURACIÓN RENDER - SISTEMA QUEJAS BOYACÁ
+==============================================
+
+Una vez que hayas subido el proyecto al repositorio principal (main) y conectado con Render,
+sigue estos pasos para completar la configuración:
+
+IMPORTANTE: Por seguridad, las credenciales NO están en el repositorio.
+Use el archivo render.template.yaml como referencia, pero configure las variables manualmente.
+
+==============================================
+PASO 1: CONFIGURACIÓN BÁSICA DEL SERVICIO
+==============================================
+
+1. Ve a tu dashboard de Render (https://dashboard.render.com)
+2. Selecciona "New +" → "Web Service"
+3. Conecta tu repositorio de GitHub
+4. Configura los siguientes campos:
+
+   - Name: sistema-quejas-boyaca (o el nombre que prefieras)
+   - Environment: Node
+   - Region: Oregon (US West) o la más cercana
+   - Branch: main
+   - Root Directory: (déjalo vacío)
+   - Runtime: Node
+   - Build Command: npm run build
+   - Start Command: npm start
+
+==============================================
+PASO 2: CONFIGURAR VARIABLES DE ENTORNO
+==============================================
+
+Ve a la pestaña "Environment" de tu servicio y agrega TODAS estas variables:
+
+--- CONFIGURACIÓN BÁSICA ---
+NODE_ENV=production
+PORT=3000
+
+--- BASE DE DATOS (CLEVER CLOUD) ---
+MYSQL_ADDON_DB=bn1wjilwxf7lfij13vn4
+MYSQL_ADDON_HOST=bn1wjilwxf7lfij13vn4-mysql.services.clever-cloud.com
+MYSQL_ADDON_PASSWORD=eglJqdgxMGyBuPuw1Ai
+MYSQL_ADDON_PORT=21198
+MYSQL_ADDON_URI=mysql://uykjziuuy3bzkvf8:eglJqdgxMGyBuPuw1Ai@bn1wjilwxf7lfij13vn4-mysql.services.clever-cloud.com:21198/bn1wjilwxf7lfij13vn4
+MYSQL_ADDON_USER=uykjziuuy3bzkvf8
+MYSQL_ADDON_VERSION=8.4
+
+--- VARIABLES ALTERNATIVAS (COMPATIBILIDAD) ---
+DB_HOST=bn1wjilwxf7lfij13vn4-mysql.services.clever-cloud.com
+DB_PORT=21198
+DB_USER=uykjziuuy3bzkvf8
+DB_PASSWORD=eglJqdgxMGyBuPuw1Ai
+DB_NAME=bn1wjilwxf7lfij13vn4
+DATABASE_URL=mysql://uykjziuuy3bzkvf8:eglJqdgxMGyBuPuw1Ai@bn1wjilwxf7lfij13vn4-mysql.services.clever-cloud.com:21198/bn1wjilwxf7lfij13vn4
+
+--- SEGURIDAD (¡CAMBIAR ESTOS VALORES!) ---
+JWT_SECRET=tu_clave_secreta_jwt_muy_larga_y_segura_para_produccion_2024
+SESSION_SECRET=tu_clave_secreta_session_muy_larga_y_segura_para_produccion_2024
+
+--- EMAIL (OPCIONAL) ---
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=quejasboyaca746@gmail.com
+EMAIL_PASSWORD=tfcwzsyhtfilezrl
+EMAIL_FROM=Sistema Quejas Boyacá <quejasboyaca746@gmail.com>
+EMAIL_TO=quejasboyaca746@gmail.com
+EMAIL_SECURE=false
+ENABLE_EMAIL_NOTIFICATIONS=true
+
+IMPORTANTE: 
+- NO incluyas comillas en los valores
+- Cada variable va en una línea separada
+- Para JWT_SECRET y SESSION_SECRET, genera claves seguras usando:
+  node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+
+==============================================
+PASO 3: CONFIGURACIÓN DE BUILD
+==============================================
+
+En la sección "Build & Deploy":
+
+1. Build Command: npm run build
+2. Start Command: npm start
+3. Auto-Deploy: Yes (para despliegue automático)
+
+==============================================
+PASO 4: CONFIGURACIONES ADICIONALES
+==============================================
+
+1. En "Settings" → "General":
+   - Instance Type: Starter (gratis) o el que prefieras
+   - Health Check Path: /health
+
+2. En "Settings" → "Networking":
+   - Custom Domain: (opcional, si tienes un dominio)
+
+==============================================
+PASO 5: VERIFICAR DESPLIEGUE
+==============================================
+
+1. Guarda todas las configuraciones
+2. Render iniciará el build automáticamente
+3. Verifica en los logs que:
+   - El build se complete sin errores
+   - El servidor inicie correctamente
+   - La conexión a la base de datos funcione
+
+4. Una vez desplegado, prueba:
+   - https://tu-servicio.onrender.com/health (debería responder OK)
+   - https://tu-servicio.onrender.com/api (debería mostrar info de la API)
+   - https://tu-servicio.onrender.com/app (debería mostrar tu aplicación)
+
+==============================================
+PASO 6: SOLUCIÓN DE PROBLEMAS COMUNES
+==============================================
+
+Si algo no funciona:
+
+1. Revisa los logs en Render (pestaña "Logs")
+2. Verifica que todas las variables de entorno estén correctas
+3. Asegúrate de que NODE_ENV=production
+4. Verifica que el build se haya completado correctamente
+
+Errores comunes:
+- "Cannot find module": Falta alguna dependencia en package.json
+- "Database connection failed": Variables de base de datos incorrectas
+- "Build failed": Error en el comando npm run build
+- "404 en rutas": Problema con el manejo de archivos estáticos
+
+==============================================
+CONFIGURACIÓN COMPLETA - CHECKLIST
+==============================================
+
+□ Servicio creado en Render
+□ Repositorio conectado
+□ Build Command: npm run build
+□ Start Command: npm start
+□ Todas las variables de entorno configuradas
+□ NODE_ENV=production
+□ Claves JWT/SESSION seguras generadas
+□ Health check configurado
+□ Despliegue exitoso
+□ Aplicación funcionando en la URL de Render
+
+==============================================
+URLS IMPORTANTES DESPUÉS DEL DESPLIEGUE
+==============================================
+
+- Aplicación: https://tu-servicio.onrender.com/app
+- API: https://tu-servicio.onrender.com/api
+- Health Check: https://tu-servicio.onrender.com/health
+- Dashboard Render: https://dashboard.render.com
+
+==============================================
+
+¡Una vez completados todos estos pasos, tu aplicación estará funcionando en producción!
+
+Si tienes problemas, revisa los logs en Render y verifica que todas las configuraciones
+estén exactamente como se especifica aquí.
