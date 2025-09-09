@@ -89,9 +89,12 @@ if (process.env.NODE_ENV === 'production') {
         }
     }));
     
-    // Manejar rutas del frontend (SPA routing)
-    app.get('/app/*', (req, res) => {
-        res.sendFile(path.join(__dirname, 'frontend/build', 'index.html'));
+    // Manejar rutas del frontend (SPA routing) - TODAS las rutas que no sean API
+    app.get('*', (req, res) => {
+        // Evitar interceptar rutas de la API y health
+        if (!req.path.startsWith('/api') && !req.path.startsWith('/health')) {
+            res.sendFile(path.join(__dirname, 'frontend/build', 'index.html'));
+        }
     });
 }
 
@@ -113,8 +116,8 @@ app.use('/api', apiRoutes);
 // Ruta raíz
 app.get('/', (req, res) => {
     if (process.env.NODE_ENV === 'production') {
-        // En producción, redirigir a la aplicación frontend
-        res.redirect('/app');
+        // En producción, servir la aplicación frontend directamente
+        res.sendFile(path.join(__dirname, 'frontend/build', 'index.html'));
     } else {
         // En desarrollo, mostrar info de la API
         res.json({
@@ -125,7 +128,7 @@ app.get('/', (req, res) => {
                 health: '/health',
                 api: '/api',
                 docs: '/api/docs',
-                app: '/app (solo en producción)'
+                app: '/ (solo en producción)'
             }
         });
     }
@@ -134,12 +137,7 @@ app.get('/', (req, res) => {
 // Catch-all handler para rutas del frontend (debe ir al final)
 if (process.env.NODE_ENV === 'production') {
     const path = require('path');
-    app.get('*', (req, res) => {
-        // Evitar interceptar rutas de la API
-        if (!req.path.startsWith('/api') && !req.path.startsWith('/health')) {
-            res.sendFile(path.join(__dirname, 'frontend/build', 'index.html'));
-        }
-    });
+    // Ya manejado arriba en app.get('*', ...)
 }
 
 // ==================== MANEJO DE ERRORES ====================
