@@ -95,14 +95,6 @@ if (process.env.NODE_ENV === 'production') {
             }
         }
     }));
-    
-    // Manejar rutas del frontend (SPA routing) - TODAS las rutas que no sean API
-    app.get('*', (req, res) => {
-        // Evitar interceptar rutas de la API y health
-        if (!req.path.startsWith('/api') && !req.path.startsWith('/health')) {
-            res.sendFile(path.join(__dirname, 'frontend/build', 'index.html'));
-        }
-    });
 }
 
 // ==================== RUTAS ====================
@@ -117,9 +109,22 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Rutas de la API
+// Rutas de la API - IMPORTANTE: ANTES del catchall del frontend
 app.use('/api', apiRoutes);
 console.log('🔍 [SERVER] API Routes montadas en /api');
+
+// Frontend routing - DESPUÉS de las rutas API
+if (process.env.NODE_ENV === 'production') {
+    const path = require('path');
+    
+    // Manejar rutas del frontend (SPA routing) - TODAS las rutas que no sean API
+    app.get('*', (req, res) => {
+        // Evitar interceptar rutas de la API y health
+        if (!req.path.startsWith('/api') && !req.path.startsWith('/health')) {
+            res.sendFile(path.join(__dirname, 'frontend/build', 'index.html'));
+        }
+    });
+}
 
 // Ruta raíz
 app.get('/', (req, res) => {
@@ -141,12 +146,6 @@ app.get('/', (req, res) => {
         });
     }
 });
-
-// Catch-all handler para rutas del frontend (debe ir al final)
-if (process.env.NODE_ENV === 'production') {
-    const path = require('path');
-    // Ya manejado arriba en app.get('*', ...)
-}
 
 // ==================== MANEJO DE ERRORES ====================
 
