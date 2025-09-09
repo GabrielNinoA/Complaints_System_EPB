@@ -7,6 +7,12 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
+    "build": "cd frontend && npm ci && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "install:frontend": "cd frontend && npm ci",
+    "deploy": "npm run build && npm start",
+    "prebuild": "echo 'Iniciando build del frontend...'",
+    "postbuild": "echo 'Build completado. Archivos generados en frontend/build'",
     "init-db": "node scripts/init-db.js",
     "health": "node scripts/health-check.js",
     "test": "jest",
@@ -44,6 +50,11 @@
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tu-usuario/sistema-quejas-boyaca.git"
+  },
+  "homepage": "https://quejas-boyaca.onrender.com",
   "nodemonConfig": {
     "ignore": [
       "logs/",

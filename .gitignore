@@ -12,7 +12,12 @@ yarn.lock
 .env.development.local
 .env.test.local
 .env.production.local
-.env.example
+
+# Configuración de Render con credenciales
+render.yaml
+
+# IMPORTANTE: .env.example SÍ debe incluirse para documentación
+# .env.example
 
 # Logs
 logs/
@@ -156,3 +161,16 @@ uploads/
 public/uploads/
 data/backups/
 audit-logs/
+
+# Build del frontend (React)
+frontend/build/
+frontend/dist/
+
+# Archivos de configuración locales del frontend
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+
+# Cache de ESLint y Prettier
+frontend/.eslintcache
+frontend/.prettierrc
