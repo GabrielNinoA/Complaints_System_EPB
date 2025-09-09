@@ -48,13 +48,16 @@ class DatabaseService {
 
     async execute(query, params = []) {
         try {
+            console.log('🔍 [DATABASE] Ejecutando query:', query.substring(0, 100) + '...');
             await this.ensureConnection();
             const [rows] = await this.pool.execute(query, params);
+            console.log('✅ [DATABASE] Query ejecutada exitosamente, filas retornadas:', rows.length);
             return rows;
         } catch (error) {
-            console.error('❌ Error ejecutando consulta:', {
+            console.error('❌ [DATABASE] Error ejecutando consulta:', {
                 query: query.substring(0, 100) + '...',
-                error: error.message
+                error: error.message,
+                code: error.code
             });
             throw error;
         }
@@ -100,13 +103,17 @@ class DatabaseService {
     // ==================== MÉTODOS PARA ENTIDADES ====================
 
     async getAllEntidades() {
+        console.log('🔍 [DATABASE] Ejecutando getAllEntidades...');
         const query = `
             SELECT id, nombre, estado, created_at, updated_at 
             FROM entidades 
             WHERE estado = true 
             ORDER BY nombre ASC
         `;
-        return await this.execute(query);
+        console.log('🔍 [DATABASE] Query:', query);
+        const result = await this.execute(query);
+        console.log('✅ [DATABASE] Resultado getAllEntidades:', result.length, 'entidades encontradas');
+        return result;
     }
 
     async getEntidadById(id) {

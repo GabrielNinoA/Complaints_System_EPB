@@ -162,6 +162,52 @@ async function startServer() {
             console.warn('⚠️  No se pudo conectar a la base de datos, pero continuando...');
         } else {
             console.log('✅ Conexión a base de datos exitosa');
+            
+            // Verificar si las tablas existen y crear datos de prueba
+            console.log('🔍 Verificando estructura de base de datos...');
+            const dbService = require('./src/services/database');
+            try {
+                await dbService.initialize();
+                
+                // Verificar si la tabla entidades existe
+                const tables = await dbService.execute("SHOW TABLES LIKE 'entidades'");
+                if (tables.length === 0) {
+                    console.log('⚠️  Tabla entidades no existe, creándola...');
+                    await dbService.execute(`
+                        CREATE TABLE IF NOT EXISTS entidades (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            nombre VARCHAR(255) NOT NULL UNIQUE,
+                            estado BOOLEAN DEFAULT TRUE,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                            INDEX idx_nombre (nombre),
+                            INDEX idx_estado (estado)
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                    `);
+                    
+                    // Insertar entidades base
+                    await dbService.execute(`
+                        INSERT INTO entidades (nombre, estado) VALUES
+                        ('CORPOBOYACA', true),
+                        ('LOTERIA DE BOYACA', true),
+                        ('EBSA', true),
+                        ('ITBOY', true),
+                        ('INDEPORTES', true),
+                        ('ALCALDIA MUNICIPAL', true),
+                        ('SECRETARIA DE SALUD', true)
+                    `);
+                    console.log('✅ Tabla entidades creada e inicializada');
+                } else {
+                    console.log('✅ Tabla entidades existe');
+                }
+                
+                // Verificar datos
+                const entidades = await dbService.getAllEntidades();
+                console.log('✅ Entidades disponibles:', entidades.length);
+                
+            } catch (dbError) {
+                console.error('❌ Error verificando base de datos:', dbError.message);
+            }
         }
         
         const server = app.listen(PORT, '0.0.0.0', () => {
