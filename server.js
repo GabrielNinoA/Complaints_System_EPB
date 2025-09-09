@@ -4,6 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const apiRoutes = require('./src/routes/api');
+console.log('🔍 [SERVER] API Routes cargadas correctamente:', typeof apiRoutes);
 const { errorHandler, notFoundHandler } = require('./src/middleware/errorHandler');
 const { requestLogger } = require('./src/middleware/logger');
 
@@ -112,6 +113,7 @@ app.get('/health', (req, res) => {
 
 // Rutas de la API
 app.use('/api', apiRoutes);
+console.log('🔍 [SERVER] API Routes montadas en /api');
 
 // Ruta raíz
 app.get('/', (req, res) => {
