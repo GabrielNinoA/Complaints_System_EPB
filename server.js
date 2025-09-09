@@ -1,10 +1,7 @@
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
 const compression = require('compression');
 const apiRoutes = require('./src/routes/api');
-console.log('🔍 [SERVER] API Routes cargadas correctamente:', typeof apiRoutes);
 const { errorHandler, notFoundHandler } = require('./src/middleware/errorHandler');
 const { requestLogger } = require('./src/middleware/logger');
 
@@ -15,37 +12,6 @@ const PORT = process.env.PORT || 3000;
 
 // Compresión de respuestas
 app.use(compression());
-
-// Configuración de seguridad con Helmet - DESACTIVADO TEMPORALMENTE PARA TESTING
-// app.use(helmet({
-//     contentSecurityPolicy: {
-//         directives: {
-//             defaultSrc: ["'self'"],
-//             styleSrc: ["'self'", "'unsafe-inline'"],
-//             scriptSrc: ["'self'"],
-//             imgSrc: ["'self'", "data:", "https:"],
-//             connectSrc: ["'self'"],
-//             fontSrc: ["'self'"],
-//             objectSrc: ["'none'"],
-//             mediaSrc: ["'self'"],
-//             frameSrc: ["'none'"]
-//         }
-//     },
-//     crossOriginEmbedderPolicy: false
-// }));
-
-// Configuración de CORS - TEMPORALMENTE DESHABILITADO PARA DEBUG
-// const corsOptions = {
-//     origin: process.env.NODE_ENV === 'production' 
-//         ? false // En producción, frontend y backend están en el mismo dominio
-//         : ['http://localhost:3000', 'http://127.0.0.1:3000'], // En desarrollo, permitir frontend local
-//     credentials: true,
-//     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-//     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-//     maxAge: 86400 // 24 horas
-// };
-
-// app.use(cors(corsOptions));
 
 // ==================== MIDDLEWARE DE PARSEO ====================
 
@@ -65,12 +31,6 @@ app.use(express.urlencoded({
 
 // Logger de requests
 app.use(requestLogger);
-
-// DEBUG: Middleware global para capturar TODAS las peticiones
-app.use((req, res, next) => {
-    console.log(`🔍 [GLOBAL] ${req.method} ${req.originalUrl} - Headers: ${JSON.stringify(req.headers.accept || 'none')}`);
-    next();
-});
 
 // Trust proxy para obtener IP real (necesario para Render)
 app.set('trust proxy', 1);
@@ -111,7 +71,6 @@ app.get('/health', (req, res) => {
 
 // Rutas de la API - IMPORTANTE: ANTES del catchall del frontend
 app.use('/api', apiRoutes);
-console.log('🔍 [SERVER] API Routes montadas en /api');
 
 // Frontend routing - DESPUÉS de las rutas API
 if (process.env.NODE_ENV === 'production') {

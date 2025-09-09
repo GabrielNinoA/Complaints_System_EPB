@@ -73,10 +73,6 @@ const Layout = ({ children }) => {
                 src={item.icon} 
                 alt={item.label} 
                 className="nav-icon"
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                  console.log(`Error loading icon: ${item.icon}`);
-                }}
               />
               <span className="nav-label">{item.label}</span>
             </div>

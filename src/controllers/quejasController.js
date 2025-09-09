@@ -125,9 +125,6 @@ class QuejasController {
             // Crear la queja
             const nuevaQueja = await dbService.createQueja(quejaData);
 
-            // Log de la operación
-            console.log(`✅ Nueva queja creada - ID: ${nuevaQueja.insertId}, Entidad: ${entidad.nombre}`);
-
             res.status(201).json({
                 success: true,
                 message: 'Queja creada exitosamente',
@@ -256,8 +253,6 @@ class QuejasController {
             const deleted = await dbService.deleteQueja(validation.id);
             
             if (deleted) {
-                console.log(`🗑️ Queja eliminada - ID: ${validation.id}`);
-                
                 res.json({
                     success: true,
                     message: 'Queja eliminada exitosamente',
@@ -317,8 +312,6 @@ class QuejasController {
             }
 
             // Actualizar estado (por ahora solo devolvemos éxito, implementación completa pendiente)
-            console.log(`📝 Actualizando estado de queja ${id} a: ${estado}`);
-            
             res.json({
                 success: true,
                 message: 'Estado de queja actualizado exitosamente',

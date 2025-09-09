@@ -13,12 +13,6 @@ const { asyncHandler } = require('../middleware/errorHandler');
 // Aplicar rate limiting global
 router.use(globalLimiter);
 
-// Debug middleware para todas las rutas API
-router.use((req, res, next) => {
-    console.log(`🔍 [API] Petición recibida: ${req.method} ${req.path}`);
-    next();
-});
-
 // ==================== INFORMACIÓN DE LA API ====================
 
 // Información básica de la API
@@ -44,11 +38,7 @@ router.get('/health', asyncHandler(estadisticasController.healthCheck));
 // ==================== RUTAS DE ENTIDADES ====================
 
 router.get('/entidades', 
-    // consultLimiter, // TEMPORALMENTE DESHABILITADO PARA DEBUG
-    (req, res, next) => {
-        console.log('🔍 [ROUTE] Ruta /api/entidades ejecutándose...');
-        next();
-    },
+    consultLimiter,
     asyncHandler(entidadesController.getAllEntidades)
 );
 

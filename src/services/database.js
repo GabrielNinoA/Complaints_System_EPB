@@ -21,7 +21,6 @@ class DatabaseService {
             connection.release();
             
             this.isConnected = true;
-            console.log('✅ Conexión a base de datos establecida');
             
             return true;
         } catch (error) {
@@ -41,17 +40,14 @@ class DatabaseService {
             await connection.ping();
             connection.release();
         } catch (error) {
-            console.log('🔄 Reconectando a la base de datos...');
             await this.initialize();
         }
     }
 
     async execute(query, params = []) {
         try {
-            console.log('🔍 [DATABASE] Ejecutando query:', query.substring(0, 100) + '...');
             await this.ensureConnection();
             const [rows] = await this.pool.execute(query, params);
-            console.log('✅ [DATABASE] Query ejecutada exitosamente, filas retornadas:', rows.length);
             return rows;
         } catch (error) {
             console.error('❌ [DATABASE] Error ejecutando consulta:', {
@@ -103,16 +99,13 @@ class DatabaseService {
     // ==================== MÉTODOS PARA ENTIDADES ====================
 
     async getAllEntidades() {
-        console.log('🔍 [DATABASE] Ejecutando getAllEntidades...');
         const query = `
             SELECT id, nombre, estado, created_at, updated_at 
             FROM entidades 
             WHERE estado = true 
             ORDER BY nombre ASC
         `;
-        console.log('🔍 [DATABASE] Query:', query);
         const result = await this.execute(query);
-        console.log('✅ [DATABASE] Resultado getAllEntidades:', result.length, 'entidades encontradas');
         return result;
     }
 
