@@ -34,18 +34,18 @@ app.use(compression());
 //     crossOriginEmbedderPolicy: false
 // }));
 
-// Configuración de CORS
-const corsOptions = {
-    origin: process.env.NODE_ENV === 'production' 
-        ? false // En producción, frontend y backend están en el mismo dominio
-        : ['http://localhost:3000', 'http://127.0.0.1:3000'], // En desarrollo, permitir frontend local
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    maxAge: 86400 // 24 horas
-};
+// Configuración de CORS - TEMPORALMENTE DESHABILITADO PARA DEBUG
+// const corsOptions = {
+//     origin: process.env.NODE_ENV === 'production' 
+//         ? false // En producción, frontend y backend están en el mismo dominio
+//         : ['http://localhost:3000', 'http://127.0.0.1:3000'], // En desarrollo, permitir frontend local
+//     credentials: true,
+//     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+//     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+//     maxAge: 86400 // 24 horas
+// };
 
-app.use(cors(corsOptions));
+// app.use(cors(corsOptions));
 
 // ==================== MIDDLEWARE DE PARSEO ====================
 
@@ -65,6 +65,12 @@ app.use(express.urlencoded({
 
 // Logger de requests
 app.use(requestLogger);
+
+// DEBUG: Middleware global para capturar TODAS las peticiones
+app.use((req, res, next) => {
+    console.log(`🔍 [GLOBAL] ${req.method} ${req.originalUrl} - Headers: ${JSON.stringify(req.headers.accept || 'none')}`);
+    next();
+});
 
 // Trust proxy para obtener IP real (necesario para Render)
 app.set('trust proxy', 1);
