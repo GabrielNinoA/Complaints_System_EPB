@@ -11,19 +11,19 @@ const Layout = ({ children }) => {
       path: '/consultar-quejas', 
       label: 'Consultar quejas', 
       key: 'consultar',
-      icon: '/resources/icon-search.png'
+      icon: process.env.PUBLIC_URL + '/resources/icon-search.png'
     },
     { 
       path: '/escribir-queja', 
       label: 'Escribir queja', 
       key: 'escribir',
-      icon: '/resources/icon-write.png'
+      icon: process.env.PUBLIC_URL + '/resources/icon-write.png'
     },
     { 
       path: '/reportes', 
       label: 'Generar reporte', 
       key: 'reportes',
-      icon: '/resources/icon-check.png'
+      icon: process.env.PUBLIC_URL + '/resources/icon-check.png'
     }
   ];
 
@@ -64,7 +64,15 @@ const Layout = ({ children }) => {
               className={`nav-item ${isActive(item.path) ? 'active' : ''}`}
               onClick={() => navigate(item.path)}
             >
-              <img src={item.icon} alt={item.label} className="nav-icon" />
+              <img 
+                src={item.icon} 
+                alt={item.label} 
+                className="nav-icon"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  console.log(`Error loading icon: ${item.icon}`);
+                }}
+              />
               <span className="nav-label">{item.label}</span>
             </div>
           ))}
