@@ -1,115 +1,96 @@
 import React, { useState, useEffect } from 'react';
 
-const MathCaptcha = ({ onValidate, isValid, resetTrigger, darkTheme = false }) => {
-  const [num1, setNum1] = useState(0);
-  const [num2, setNum2] = useState(0);
-  const [operation, setOperation] = useState('+');
+const MathCaptcha = ({ onValidate, isValid, resetTrigger, darkTheme }) => {
+  const [question, setQuestion] = useState('');
   const [userAnswer, setUserAnswer] = useState('');
-  const [correctAnswer, setCorrectAnswer] = useState(0);
+  const [correctAnswer, setCorrectAnswer] = useState(null);
 
-  // Generate new math problem
-  const generateNewProblem = () => {
+  const generateQuestion = () => {
+    const num1 = Math.floor(Math.random() * 10) + 1;
+    const num2 = Math.floor(Math.random() * 10) + 1;
     const operations = ['+', '-', '*'];
-    const selectedOp = operations[Math.floor(Math.random() * operations.length)];
+    const operation = operations[Math.floor(Math.random() * operations.length)];
     
-    let n1, n2, answer;
-    
-    switch (selectedOp) {
+    let result;
+    switch (operation) {
       case '+':
-        n1 = Math.floor(Math.random() * 50) + 1;
-        n2 = Math.floor(Math.random() * 50) + 1;
-        answer = n1 + n2;
+        result = num1 + num2;
         break;
       case '-':
-        n1 = Math.floor(Math.random() * 50) + 25; // Ensure positive result
-        n2 = Math.floor(Math.random() * 25) + 1;
-        answer = n1 - n2;
+        result = num1 - num2;
         break;
       case '*':
-        n1 = Math.floor(Math.random() * 12) + 1;
-        n2 = Math.floor(Math.random() * 12) + 1;
-        answer = n1 * n2;
+        result = num1 * num2;
         break;
       default:
-        n1 = 1;
-        n2 = 1;
-        answer = 2;
+        result = num1 + num2;
     }
     
-    setNum1(n1);
-    setNum2(n2);
-    setOperation(selectedOp);
-    setCorrectAnswer(answer);
+    setQuestion(`${num1} ${operation} ${num2} = ?`);
+    setCorrectAnswer(result);
     setUserAnswer('');
-    
-    // Reset validation when new problem is generated
-    if (onValidate) {
-      onValidate(false);
-    }
   };
 
-  // Initialize with first problem
   useEffect(() => {
-    generateNewProblem();
+    generateQuestion();
   }, []);
 
-  // Reset when resetTrigger changes
   useEffect(() => {
-    if (resetTrigger) {
-      generateNewProblem();
-    }
+    generateQuestion();
   }, [resetTrigger]);
 
-  // Validate answer when user types
   useEffect(() => {
-    const userAnswerNum = parseInt(userAnswer);
-    const isCorrect = !isNaN(userAnswerNum) && userAnswerNum === correctAnswer;
-    
-    if (onValidate) {
-      onValidate(isCorrect);
+    const userNum = parseInt(userAnswer);
+    if (!isNaN(userNum) && userNum === correctAnswer) {
+      onValidate(true);
+    } else {
+      onValidate(false);
     }
   }, [userAnswer, correctAnswer, onValidate]);
 
   const handleInputChange = (e) => {
-    // Only allow numbers
-    const value = e.target.value.replace(/[^0-9-]/g, '');
-    setUserAnswer(value);
+    setUserAnswer(e.target.value);
   };
 
   const handleRefresh = () => {
-    generateNewProblem();
+    generateQuestion();
   };
 
-  return React.createElement('div', { className: `math-captcha ${darkTheme ? 'dark' : ''}` },
-    React.createElement('div', { className: 'captcha-header' },
-      React.createElement('label', null, 'Resuelve la operación para continuar:')
+  return React.createElement('div', {
+    className: 'math-captcha'
+  },
+    React.createElement('div', {
+      className: 'captcha-question'
+    }, question),
+    
+    React.createElement('div', {
+      style: { marginBottom: '1rem' }
+    },
+      React.createElement('input', {
+        type: 'number',
+        className: 'captcha-input',
+        value: userAnswer,
+        onChange: handleInputChange,
+        placeholder: '?'
+      }),
+      React.createElement('button', {
+        type: 'button',
+        onClick: handleRefresh,
+        style: {
+          marginLeft: '0.5rem',
+          padding: '0.5rem',
+          backgroundColor: '#3498db',
+          color: 'white',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: 'pointer'
+        }
+      }, '↻')
     ),
-    React.createElement('div', { className: 'captcha-content' },
-      React.createElement('div', { className: 'math-problem' },
-        React.createElement('span', { className: 'math-text' },
-          `${num1} ${operation} ${num2} = `
-        ),
-        React.createElement('div', { className: 'input-refresh-container' },
-          React.createElement('input', {
-            type: 'text',
-            value: userAnswer,
-            onChange: handleInputChange,
-            placeholder: '?',
-            className: `captcha-input ${isValid === true ? 'valid' : isValid === false && userAnswer ? 'invalid' : ''}`,
-            maxLength: 4
-          }),
-          React.createElement('button', {
-            type: 'button',
-            onClick: handleRefresh,
-            className: 'captcha-refresh-btn',
-            title: 'Generar nuevo problema'
-          }, '🔄')
-        )
-      )
-    ),
-    isValid === false && userAnswer && React.createElement('div', { className: 'captcha-error' },
-      'Respuesta incorrecta. Inténtalo de nuevo.'
-    )
+    
+    React.createElement('div', {
+      className: `captcha-status ${isValid ? 'captcha-valid' : 'captcha-invalid'}`
+    }, isValid ? '✓ Correcto' : userAnswer ? '✗ Incorrecto' : 'Resuelve la operación')
   );
 };
 

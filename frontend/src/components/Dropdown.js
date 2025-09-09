@@ -1,26 +1,50 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
-const Dropdown = ({ options, selectedOption, onSelect, placeholder, displayKey = 'name', disabled = false }) => {
-  return React.createElement('div', { className: 'dropdown' },
-    React.createElement('select', {
-      className: 'form-select',
-      value: selectedOption ? selectedOption.id : '',
-      onChange: (e) => {
-        if (!disabled) {
-          const selected = options.find(opt => opt.id == e.target.value);
-          if (selected) {
-            onSelect(selected);
-          }
-        }
-      },
-      disabled: disabled
+const Dropdown = ({ options, selectedOption, onSelect, placeholder, displayKey }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleOptionClick = (option) => {
+    onSelect(option);
+    setIsOpen(false);
+  };
+
+  const displayText = selectedOption 
+    ? (displayKey ? selectedOption[displayKey] : selectedOption)
+    : placeholder;
+
+  return React.createElement('div', {
+    className: 'dropdown',
+    ref: dropdownRef
+  },
+    React.createElement('button', {
+      type: 'button',
+      className: 'dropdown-button',
+      onClick: () => setIsOpen(!isOpen)
+    }, displayText),
+    
+    isOpen && React.createElement('div', {
+      className: 'dropdown-menu'
     },
-      React.createElement('option', { value: '' }, placeholder),
       options.map((option) =>
-        React.createElement('option', {
+        React.createElement('div', {
           key: option.id,
-          value: option.id
-        }, option[displayKey])
+          className: 'dropdown-item',
+          onClick: () => handleOptionClick(option)
+        }, displayKey ? option[displayKey] : option)
       )
     )
   );

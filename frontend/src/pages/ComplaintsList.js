@@ -1,76 +1,92 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import Dropdown from '../components/Dropdown';
 
 const ComplaintsList = () => {
-  const { entidadId } = useParams();
+  const { entityId } = useParams();
   const [complaints, setComplaints] = useState([]);
   const [entityName, setEntityName] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Fetch complaints for the specific entity
-    fetch(`${process.env.REACT_APP_API_URL}/api/quejas/entidad/${entidadId}`)
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          setComplaints(data.data);
-        }
-      })
-      .catch(error => console.error('Error fetching complaints:', error));
-
-    // Fetch entity name
-    fetch(`${process.env.REACT_APP_API_URL}/api/entidades`)
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          const entity = data.data.find(e => e.id == entidadId);
+    const fetchComplaints = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch entity name
+        const entityResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/entidades`);
+        const entityData = await entityResponse.json();
+        
+        if (entityData.success) {
+          const entity = entityData.data.find(e => e.id === parseInt(entityId));
           setEntityName(entity ? entity.nombre : 'Entidad desconocida');
         }
-      })
-      .catch(error => {
-        console.error('Error fetching entities:', error);
-        setEntityName('Entidad #' + entidadId);
-      });
-  }, [entidadId]);
+
+        // Fetch complaints for this entity
+        const complaintsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/quejas/entidad/${entityId}`);
+        const complaintsData = await complaintsResponse.json();
+        
+        if (complaintsData.success) {
+          setComplaints(complaintsData.data);
+        } else {
+          setError('No se pudieron cargar las quejas');
+        }
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError('Error de conexión');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (entityId) {
+      fetchComplaints();
+    }
+  }, [entityId]);
+
+  if (loading) {
+    return React.createElement('div', { className: 'page-container' },
+      React.createElement('div', { className: 'loading-message' },
+        'Cargando quejas...'
+      )
+    );
+  }
+
+  if (error) {
+    return React.createElement('div', { className: 'page-container' },
+      React.createElement('div', { className: 'error-message' },
+        error
+      )
+    );
+  }
 
   return React.createElement('div', { className: 'page-container' },
     React.createElement('h1', { className: 'page-title' },
-      'Listado de quejas'
+      `Quejas de ${entityName}`
     ),
     
-    React.createElement('div', { className: 'form-container' },
-      React.createElement('div', { className: 'form-group' },
-        React.createElement(Dropdown, {
-          options: [{ id: entidadId, nombre: entityName }],
-          selectedOption: { id: entidadId, nombre: entityName },
-          onSelect: () => {},
-          placeholder: entityName,
-          displayKey: 'nombre',
-          disabled: true
-        })
-      )
+    React.createElement('div', { className: 'complaints-count' },
+      `Total de quejas: ${complaints.length}`
     ),
     
     React.createElement('div', { className: 'complaints-list' },
-      complaints.length > 0 ? 
-        complaints.map((complaint, index) =>
-          React.createElement('div', { 
-            key: complaint.id || index, 
-            className: 'complaint-item' 
-          },
-            React.createElement('div', { className: 'complaint-title' },
-              `Queja #${index + 1}`
-            ),
-            React.createElement('div', { className: 'complaint-description' },
-              complaint.descripcion || 'Supporting line text lorem ipsum dolor sit amet, consectetur.'
-            )
-          )
-        ) :
-        React.createElement('div', { className: 'complaint-item' },
-          React.createElement('div', { className: 'complaint-description' },
+      complaints.length === 0 
+        ? React.createElement('div', { className: 'no-complaints' },
             'No hay quejas registradas para esta entidad.'
           )
-        )
+        : complaints.map((complaint, index) =>
+            React.createElement('div', {
+              key: complaint.id,
+              className: 'complaint-item'
+            },
+              React.createElement('div', { className: 'complaint-title' },
+                `Queja #${String(index + 1).padStart(2, '0')}`
+              ),
+              React.createElement('div', { className: 'complaint-description' },
+                complaint.descripcion
+              )
+            )
+          )
     )
   );
 };

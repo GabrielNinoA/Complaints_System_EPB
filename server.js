@@ -1,147 +1,152 @@
 require('dotenv').config();
 const express = require('express');
-const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
-const routes = require('./src/routes');
+const compression = require('compression');
+const apiRoutes = require('./src/routes/api');
+const { errorHandler, notFoundHandler } = require('./src/middleware/errorHandler');
+const { requestLogger } = require('./src/middleware/logger');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configuración de seguridad
+// ==================== MIDDLEWARE DE SEGURIDAD ====================
+
+// Compresión de respuestas
+app.use(compression());
+
+// Configuración de seguridad con Helmet
 app.use(helmet({
-    contentSecurityPolicy: false, // Deshabilitado para permitir inline scripts
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrc: ["'self'"],
+            imgSrc: ["'self'", "data:", "https:"],
+            connectSrc: ["'self'"],
+            fontSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            mediaSrc: ["'self'"],
+            frameSrc: ["'none'"]
+        }
+    },
     crossOriginEmbedderPolicy: false
 }));
 
 // Configuración de CORS
-app.use(cors({
-    origin: true, // Permite cualquier origen en desarrollo
+const corsOptions = {
+    origin: process.env.NODE_ENV === 'production' 
+        ? process.env.FRONTEND_URL?.split(',') || ['https://quejas-boyaca.onrender.com']
+        : true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    maxAge: 86400 // 24 horas
+};
 
-// Middleware para parsear JSON
+app.use(cors(corsOptions));
+
+// ==================== MIDDLEWARE DE PARSEO ====================
+
+// Parseo de JSON con límite de tamaño
 app.use(express.json({ 
     limit: '1mb',
     strict: true 
 }));
 
+// Parseo de URL encoded
 app.use(express.urlencoded({ 
     extended: true, 
     limit: '1mb' 
 }));
 
-// Middleware para obtener IP real del cliente
-// app.set('trust proxy', true); // Comentado temporalmente para evitar conflicto con rate limiting
+// ==================== MIDDLEWARE DE LOGGING ====================
 
-// Middleware para agregar headers de seguridad adicionales
-app.use((req, res, next) => {
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('X-XSS-Protection', '1; mode=block');
-    next();
+// Logger de requests
+app.use(requestLogger);
+
+// Trust proxy para obtener IP real (necesario para Render)
+app.set('trust proxy', 1);
+
+// ==================== RUTAS ====================
+
+// Health check básico
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development',
+        version: require('./package.json').version
+    });
 });
-
-// Servir archivos estáticos
-app.use(express.static(path.join(__dirname, 'public'), {
-    maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,
-    etag: false
-}));
 
 // Rutas de la API
-app.use('/api', routes);
+app.use('/api', apiRoutes);
 
-// Ruta principal que sirve el index.html
+// Ruta raíz
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.json({
+        name: 'Sistema de Quejas Boyacá API',
+        version: require('./package.json').version,
+        status: 'running',
+        endpoints: {
+            health: '/health',
+            api: '/api',
+            docs: '/api/docs'
+        }
+    });
 });
 
-// Ruta para SPA (Single Page Application) - sirve index.html para rutas del frontend
-app.get('/app/*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+// ==================== MANEJO DE ERRORES ====================
 
 // Manejo de rutas no encontradas
-app.use('*', (req, res) => {
-    // Si la ruta solicita JSON, devolver error JSON
-    if (req.accepts('json')) {
-        return res.status(404).json({
-            success: false,
-            message: 'Endpoint no encontrado',
-            path: req.originalUrl
-        });
-    }
-    
-    // Para otras solicitudes, servir página de error o index.html
-    res.status(404).sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+app.use(notFoundHandler);
 
 // Manejo global de errores
-app.use((error, req, res, next) => {
-    console.error('Error global del servidor:', {
-        message: error.message,
-        stack: error.stack,
-        url: req.originalUrl,
-        method: req.method,
-        ip: req.ip,
-        timestamp: new Date().toISOString()
-    });
+app.use(errorHandler);
 
-    // Si ya se enviaron headers, delegar al error handler por defecto de Express
-    if (res.headersSent) {
-        return next(error);
-    }
+// ==================== INICIO DEL SERVIDOR ====================
 
-    const isDev = process.env.NODE_ENV !== 'production';
-    
-    res.status(error.status || 500).json({
-        success: false,
-        message: isDev ? error.message : 'Error interno del servidor',
-        ...(isDev && { stack: error.stack })
-    });
-});
-
-// Función para iniciar el servidor
 async function startServer() {
     try {
-        // El servidor se inicia independientemente de la conexión a la base de datos
-        // La conexión a la base de datos se maneja en cada controlador
-        
-        const server = app.listen(PORT, () => {
+        const server = app.listen(PORT, '0.0.0.0', () => {
             console.log('\n🚀 ===================================');
-            console.log('   SERVIDOR INICIADO CORRECTAMENTE');
+            console.log('   SISTEMA DE QUEJAS BOYACÁ v2.0');
             console.log('🚀 ===================================');
-            console.log(`📍 Servidor corriendo en: http://localhost:${PORT}`);
-            console.log(`📱 API disponible en: http://localhost:${PORT}/api`);
-            console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-            console.log(`📈 Estadísticas: http://localhost:${PORT}/api/estadisticas`);
-            console.log(`🏢 Entidades: http://localhost:${PORT}/api/entidades`);
-            console.log(`📝 Quejas: http://localhost:${PORT}/api/quejas`);
+            console.log(`📍 Servidor: http://localhost:${PORT}`);
+            console.log(`📱 API: http://localhost:${PORT}/api`);
+            console.log(`💚 Health: http://localhost:${PORT}/health`);
             console.log(`🔧 Entorno: ${process.env.NODE_ENV || 'development'}`);
             console.log('=====================================\n');
         });
 
         // Manejo de cierre graceful
-        process.on('SIGINT', () => {
-            console.log('\n🛑 Recibida señal SIGINT, cerrando servidor...');
-            gracefulShutdown(server);
-        });
+        const gracefulShutdown = (signal) => {
+            console.log(`\n🛑 Recibida señal ${signal}, cerrando servidor...`);
+            
+            server.close(() => {
+                console.log('✅ Servidor HTTP cerrado');
+                process.exit(0);
+            });
 
-        process.on('SIGTERM', () => {
-            console.log('\n🛑 Recibida señal SIGTERM, cerrando servidor...');
-            gracefulShutdown(server);
-        });
+            // Forzar cierre después de 30 segundos
+            setTimeout(() => {
+                console.error('❌ Forzando cierre del servidor');
+                process.exit(1);
+            }, 30000);
+        };
+
+        process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+        process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
         // Manejo de errores no capturados
         process.on('unhandledRejection', (reason, promise) => {
-            console.error('❌ Unhandled Rejection en:', promise, 'razón:', reason);
+            console.error('❌ Unhandled Rejection:', reason);
         });
 
         process.on('uncaughtException', (error) => {
             console.error('❌ Uncaught Exception:', error);
-            gracefulShutdown(server);
+            gracefulShutdown('UNCAUGHT_EXCEPTION');
         });
 
     } catch (error) {
@@ -150,26 +155,9 @@ async function startServer() {
     }
 }
 
-// Función para cierre graceful del servidor
-function gracefulShutdown(server) {
-    console.log('⏳ Iniciando cierre graceful...');
-    
-    server.close(() => {
-        console.log('✅ Servidor HTTP cerrado');
-        
-        // Aquí podrías cerrar conexiones adicionales como base de datos
-        // if (database) database.close();
-        
-        console.log('👋 Proceso terminado exitosamente');
-        process.exit(0);
-    });
-
-    // Forzar cierre después de 30 segundos
-    setTimeout(() => {
-        console.error('❌ Forzando cierre del servidor después de 30s');
-        process.exit(1);
-    }, 30000);
+// Iniciar servidor
+if (require.main === module) {
+    startServer();
 }
 
-// Iniciar el servidor
-startServer();
+module.exports = app;
