@@ -33,67 +33,67 @@ router.get('/', (req, res) => {
 });
 
 // Health check
-router.get('/health', asyncHandler(estadisticasController.healthCheck.bind(estadisticasController)));
+router.get('/health', asyncHandler(estadisticasController.healthCheck));
 
 // ==================== RUTAS DE ENTIDADES ====================
 
 router.get('/entidades', 
     consultLimiter,
-    asyncHandler(entidadesController.getAllEntidades.bind(entidadesController))
+    asyncHandler(entidadesController.getAllEntidades)
 );
 
 router.get('/entidades/:id', 
     consultLimiter,
-    asyncHandler(entidadesController.getEntidadById.bind(entidadesController))
+    asyncHandler(entidadesController.getEntidadById)
 );
 
 // ==================== RUTAS DE QUEJAS ====================
 
 router.get('/quejas', 
     consultLimiter,
-    asyncHandler(quejasController.getAllQuejas.bind(quejasController))
+    asyncHandler(quejasController.getAllQuejas)
 );
 
 router.get('/quejas/:id', 
     consultLimiter,
-    asyncHandler(quejasController.getQuejaById.bind(quejasController))
+    asyncHandler(quejasController.getQuejaById)
 );
 
 router.post('/quejas', 
     complaintsLimiter,
-    asyncHandler(quejasController.createQueja.bind(quejasController))
+    asyncHandler(quejasController.createQueja)
 );
 
 router.get('/quejas/entidad/:entidadId', 
     consultLimiter,
-    asyncHandler(quejasController.getQuejasByEntidad.bind(quejasController))
+    asyncHandler(quejasController.getQuejasByEntidad)
 );
 
 // Ruta administrativa para eliminar quejas
 router.delete('/quejas/:id', 
-    asyncHandler(quejasController.deleteQueja.bind(quejasController))
+    asyncHandler(quejasController.deleteQueja)
 );
 
 // Ruta administrativa para actualizar estado de queja  
 router.patch('/quejas/:id/estado', 
-    asyncHandler(quejasController.updateQuejaStatus.bind(quejasController))
+    asyncHandler(quejasController.updateQuejaStatus)
 );
 
 // ==================== RUTAS DE ESTADÍSTICAS ====================
 
 router.get('/estadisticas', 
     consultLimiter,
-    asyncHandler(estadisticasController.getEstadisticasGenerales.bind(estadisticasController))
+    asyncHandler(estadisticasController.getEstadisticasGenerales)
 );
 
 router.get('/reportes', 
     consultLimiter,
-    asyncHandler(estadisticasController.getReportes.bind(estadisticasController))
+    asyncHandler(estadisticasController.getReportes)
 );
 
 router.get('/reportes/csv', 
     consultLimiter,
-    asyncHandler(estadisticasController.getReporteCSV.bind(estadisticasController))
+    asyncHandler(estadisticasController.getReporteCSV)
 );
 
 // ==================== RUTAS DE AUDITORÍA ====================
@@ -125,22 +125,22 @@ router.get('/auditoria/resumen', async (req, res) => {
 // Rutas alternativas para compatibilidad con frontend existente
 router.get('/complaints', 
     consultLimiter,
-    asyncHandler(quejasController.getAllQuejas.bind(quejasController))
+    asyncHandler(quejasController.getAllQuejas)
 );
 
 router.get('/complaints/:id', 
     consultLimiter,
-    asyncHandler(quejasController.getQuejaById.bind(quejasController))
+    asyncHandler(quejasController.getQuejaById)
 );
 
 router.post('/complaints', 
     complaintsLimiter,
-    asyncHandler(quejasController.createQueja.bind(quejasController))
+    asyncHandler(quejasController.createQueja)
 );
 
 router.get('/entities', 
     consultLimiter,
-    asyncHandler(entidadesController.getAllEntidades.bind(entidadesController))
+    asyncHandler(entidadesController.getAllEntidades)
 );
 
 module.exports = router;

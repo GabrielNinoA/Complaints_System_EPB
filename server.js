@@ -1,7 +1,5 @@
-sirequire('dotenv').config();
+require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
 const compression = require('compression');
 const apiRoutes = require('./src/routes/api');
 const { errorHandler, notFoundHandler } = require('./src/middleware/errorHandler');
@@ -14,37 +12,6 @@ const PORT = process.env.PORT || 3000;
 
 // Compresión de respuestas
 app.use(compression());
-
-// Configuración de seguridad con Helmet
-app.use(helmet({
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            scriptSrc: ["'self'"],
-            imgSrc: ["'self'", "data:", "https:"],
-            connectSrc: ["'self'"],
-            fontSrc: ["'self'"],
-            objectSrc: ["'none'"],
-            mediaSrc: ["'self'"],
-            frameSrc: ["'none'"]
-        }
-    },
-    crossOriginEmbedderPolicy: false
-}));
-
-// Configuración de CORS
-const corsOptions = {
-    origin: process.env.NODE_ENV === 'production' 
-        ? false // En producción, frontend y backend están en el mismo dominio
-        : ['http://localhost:3000', 'http://127.0.0.1:3000'], // En desarrollo, permitir frontend local
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    maxAge: 86400 // 24 horas
-};
-
-app.use(cors(corsOptions));
 
 // ==================== MIDDLEWARE DE PARSEO ====================
 
@@ -74,13 +41,20 @@ app.set('trust proxy', 1);
 if (process.env.NODE_ENV === 'production') {
     const path = require('path');
     
-    // Servir archivos estáticos desde frontend/build
-    app.use(express.static(path.join(__dirname, 'frontend/build')));
-    
-    // Manejar rutas del frontend (SPA routing)
-    app.get('/app/*', (req, res) => {
-        res.sendFile(path.join(__dirname, 'frontend/build', 'index.html'));
-    });
+    // Servir archivos estáticos desde frontend/build con configuración de MIME types
+    app.use(express.static(path.join(__dirname, 'frontend/build'), {
+        setHeaders: (res, filePath) => {
+            if (filePath.endsWith('.css')) {
+                res.setHeader('Content-Type', 'text/css');
+            }
+            if (filePath.endsWith('.js')) {
+                res.setHeader('Content-Type', 'application/javascript');
+            }
+            if (filePath.endsWith('.html')) {
+                res.setHeader('Content-Type', 'text/html');
+            }
+        }
+    }));
 }
 
 // ==================== RUTAS ====================
@@ -95,14 +69,27 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Rutas de la API
+// Rutas de la API - IMPORTANTE: ANTES del catchall del frontend
 app.use('/api', apiRoutes);
+
+// Frontend routing - DESPUÉS de las rutas API
+if (process.env.NODE_ENV === 'production') {
+    const path = require('path');
+    
+    // Manejar rutas del frontend (SPA routing) - TODAS las rutas que no sean API
+    app.get('*', (req, res) => {
+        // Evitar interceptar rutas de la API y health
+        if (!req.path.startsWith('/api') && !req.path.startsWith('/health')) {
+            res.sendFile(path.join(__dirname, 'frontend/build', 'index.html'));
+        }
+    });
+}
 
 // Ruta raíz
 app.get('/', (req, res) => {
     if (process.env.NODE_ENV === 'production') {
-        // En producción, redirigir a la aplicación frontend
-        res.redirect('/app');
+        // En producción, servir la aplicación frontend directamente
+        res.sendFile(path.join(__dirname, 'frontend/build', 'index.html'));
     } else {
         // En desarrollo, mostrar info de la API
         res.json({
@@ -113,22 +100,11 @@ app.get('/', (req, res) => {
                 health: '/health',
                 api: '/api',
                 docs: '/api/docs',
-                app: '/app (solo en producción)'
+                app: '/ (solo en producción)'
             }
         });
     }
 });
-
-// Catch-all handler para rutas del frontend (debe ir al final)
-if (process.env.NODE_ENV === 'production') {
-    const path = require('path');
-    app.get('*', (req, res) => {
-        // Evitar interceptar rutas de la API
-        if (!req.path.startsWith('/api') && !req.path.startsWith('/health')) {
-            res.sendFile(path.join(__dirname, 'frontend/build', 'index.html'));
-        }
-    });
-}
 
 // ==================== MANEJO DE ERRORES ====================
 
@@ -142,6 +118,64 @@ app.use(errorHandler);
 
 async function startServer() {
     try {
+        // Verificar conexión a base de datos
+        const dbConfig = require('./src/config/database');
+        console.log('🔍 Verificando conexión a base de datos...');
+        console.log('🔧 Configuración DB:', dbConfig.getConnectionInfo());
+        
+        const dbConnected = await dbConfig.testConnection();
+        if (!dbConnected) {
+            console.warn('⚠️  No se pudo conectar a la base de datos, pero continuando...');
+        } else {
+            console.log('✅ Conexión a base de datos exitosa');
+            
+            // Verificar si las tablas existen y crear datos de prueba
+            console.log('🔍 Verificando estructura de base de datos...');
+            const dbService = require('./src/services/database');
+            try {
+                await dbService.initialize();
+                
+                // Verificar si la tabla entidades existe
+                const tables = await dbService.execute("SHOW TABLES LIKE 'entidades'");
+                if (tables.length === 0) {
+                    console.log('⚠️  Tabla entidades no existe, creándola...');
+                    await dbService.execute(`
+                        CREATE TABLE IF NOT EXISTS entidades (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            nombre VARCHAR(255) NOT NULL UNIQUE,
+                            estado BOOLEAN DEFAULT TRUE,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                            INDEX idx_nombre (nombre),
+                            INDEX idx_estado (estado)
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                    `);
+                    
+                    // Insertar entidades base
+                    await dbService.execute(`
+                        INSERT INTO entidades (nombre, estado) VALUES
+                        ('CORPOBOYACA', true),
+                        ('LOTERIA DE BOYACA', true),
+                        ('EBSA', true),
+                        ('ITBOY', true),
+                        ('INDEPORTES', true),
+                        ('ALCALDIA MUNICIPAL', true),
+                        ('SECRETARIA DE SALUD', true)
+                    `);
+                    console.log('✅ Tabla entidades creada e inicializada');
+                } else {
+                    console.log('✅ Tabla entidades existe');
+                }
+                
+                // Verificar datos
+                const entidades = await dbService.getAllEntidades();
+                console.log('✅ Entidades disponibles:', entidades.length);
+                
+            } catch (dbError) {
+                console.error('❌ Error verificando base de datos:', dbError.message);
+            }
+        }
+        
         const server = app.listen(PORT, '0.0.0.0', () => {
             console.log('\n🚀 ===================================');
             console.log('   SISTEMA DE QUEJAS BOYACÁ v2.0');

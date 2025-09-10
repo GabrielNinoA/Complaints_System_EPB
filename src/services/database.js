@@ -21,7 +21,6 @@ class DatabaseService {
             connection.release();
             
             this.isConnected = true;
-            console.log('✅ Conexión a base de datos establecida');
             
             return true;
         } catch (error) {
@@ -41,7 +40,6 @@ class DatabaseService {
             await connection.ping();
             connection.release();
         } catch (error) {
-            console.log('🔄 Reconectando a la base de datos...');
             await this.initialize();
         }
     }
@@ -52,9 +50,10 @@ class DatabaseService {
             const [rows] = await this.pool.execute(query, params);
             return rows;
         } catch (error) {
-            console.error('❌ Error ejecutando consulta:', {
+            console.error('❌ [DATABASE] Error ejecutando consulta:', {
                 query: query.substring(0, 100) + '...',
-                error: error.message
+                error: error.message,
+                code: error.code
             });
             throw error;
         }
@@ -106,7 +105,8 @@ class DatabaseService {
             WHERE estado = true 
             ORDER BY nombre ASC
         `;
-        return await this.execute(query);
+        const result = await this.execute(query);
+        return result;
     }
 
     async getEntidadById(id) {
