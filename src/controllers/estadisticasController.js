@@ -1,5 +1,12 @@
 const dbService = require('../services/database');
-const emailService = require('../services/emailService');
+
+// Importar el servicio de email de forma segura
+let emailService = null;
+try {
+    emailService = require('../services/email');
+} catch (error) {
+    console.warn('⚠️  Servicio de email no disponible:', error.message);
+}
 
 class EstadisticasController {
     // Función auxiliar para obtener información del usuario
@@ -13,22 +20,36 @@ class EstadisticasController {
         };
     }
 
-    // Función auxiliar para enviar notificación por email
+    // Función auxiliar para enviar notificación por email (non-blocking)
     async _sendEmailNotification(reportData, userInfo) {
-        try {
-            if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true') {
-                const emailResult = await emailService.sendReportNotification(reportData, userInfo);
-                if (emailResult.success) {
-                    console.log('📧 Notificación enviada exitosamente:', emailResult.messageId);
-                } else {
-                    console.warn('⚠️  Error enviando notificación:', emailResult.error);
-                }
-                return emailResult;
-            }
-        } catch (error) {
-            console.error('❌ Error en notificación por email:', error.message);
+        // Si el servicio de email no está disponible, salir silenciosamente
+        if (!emailService) {
+            console.log('📧 Servicio de email no disponible, saltando notificación');
+            return { success: true, skipped: true, reason: 'Servicio no disponible' };
         }
-        return null;
+
+        try {
+            // Ejecutar en background sin bloquear la respuesta principal
+            const emailPromise = emailService.sendReportNotification(reportData, userInfo);
+            
+            // No esperar la respuesta del email - continuar con la respuesta principal
+            emailPromise.then(result => {
+                if (result.success && !result.skipped) {
+                    console.log('📧 Notificación enviada exitosamente:', result.messageId);
+                } else if (result.skipped) {
+                    console.log('📧 Notificación saltada:', result.reason);
+                } else {
+                    console.warn('⚠️  Error enviando notificación (no crítico):', result.error);
+                }
+            }).catch(error => {
+                console.error('❌ Error en notificación por email (no crítico):', error.message);
+            });
+
+            return { success: true, background: true };
+        } catch (error) {
+            console.error('❌ Error configurando notificación (no crítico):', error.message);
+            return { success: false, error: error.message, nonCritical: true };
+        }
     }
 
     // Obtener estadísticas generales del sistema
@@ -53,7 +74,7 @@ class EstadisticasController {
                 responseTime
             };
 
-            // Enviar notificación por email
+            // Enviar notificación por email en background
             const emailNotification = await this._sendEmailNotification(reportData, userInfo);
 
             res.json({
@@ -64,9 +85,9 @@ class EstadisticasController {
                     quejas_hoy: estadisticas.quejasHoy,
                     quejas_mes_actual: estadisticas.quejasMes
                 },
-                notification: emailNotification ? {
-                    email_sent: emailNotification.success,
-                    email_id: emailNotification.messageId || null
+                notification: emailNotification && emailNotification.success ? {
+                    email_queued: true,
+                    background: emailNotification.background || false
                 } : null,
                 timestamp: new Date().toISOString(),
                 responseTime
@@ -97,16 +118,16 @@ class EstadisticasController {
                 responseTime
             };
 
-            // Enviar notificación por email
+            // Enviar notificación por email en background
             const emailNotification = await this._sendEmailNotification(reportData, userInfo);
             
             res.json({
                 success: true,
                 data: distribucion,
                 count: distribucion.length,
-                notification: emailNotification ? {
-                    email_sent: emailNotification.success,
-                    email_id: emailNotification.messageId || null
+                notification: emailNotification && emailNotification.success ? {
+                    email_queued: true,
+                    background: emailNotification.background || false
                 } : null,
                 timestamp: new Date().toISOString(),
                 responseTime
@@ -148,7 +169,7 @@ class EstadisticasController {
                 responseTime
             };
 
-            // Enviar notificación por email
+            // Enviar notificación por email en background
             const emailNotification = await this._sendEmailNotification(reportData, userInfo);
             
             res.json({
@@ -156,9 +177,9 @@ class EstadisticasController {
                 data: tendencia,
                 count: tendencia.length,
                 periodo: `Últimos ${limite} meses`,
-                notification: emailNotification ? {
-                    email_sent: emailNotification.success,
-                    email_id: emailNotification.messageId || null
+                notification: emailNotification && emailNotification.success ? {
+                    email_queued: true,
+                    background: emailNotification.background || false
                 } : null,
                 timestamp: new Date().toISOString(),
                 responseTime
@@ -201,7 +222,7 @@ class EstadisticasController {
                 responseTime
             };
 
-            // Enviar notificación por email
+            // Enviar notificación por email en background
             const emailNotification = await this._sendEmailNotification(reportData, userInfo);
 
             res.json({
@@ -216,9 +237,9 @@ class EstadisticasController {
                     distribucion_por_entidad: distribucionEntidades,
                     tendencia_mensual: tendenciaMensual
                 },
-                notification: emailNotification ? {
-                    email_sent: emailNotification.success,
-                    email_id: emailNotification.messageId || null
+                notification: emailNotification && emailNotification.success ? {
+                    email_queued: true,
+                    background: emailNotification.background || false
                 } : null,
                 generado_en: new Date().toISOString(),
                 responseTime
@@ -243,6 +264,17 @@ class EstadisticasController {
             const connectionInfo = await dbService.getConnectionInfo();
             
             const responseTime = Date.now() - startTime;
+
+            // Verificar también el estado del email
+            let emailStatus = 'not_configured';
+            if (emailService) {
+                try {
+                    const emailHealthy = await emailService.verifyConnection();
+                    emailStatus = emailHealthy ? 'healthy' : 'unhealthy';
+                } catch (error) {
+                    emailStatus = 'error';
+                }
+            }
             
             if (isHealthy) {
                 res.json({
@@ -252,6 +284,10 @@ class EstadisticasController {
                         status: 'connected',
                         type: 'MySQL',
                         ...connectionInfo
+                    },
+                    email: {
+                        status: emailStatus,
+                        notifications_enabled: process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true'
                     },
                     server: {
                         uptime: Math.floor(process.uptime()),
@@ -304,7 +340,7 @@ class EstadisticasController {
                 responseTime
             };
 
-            // Enviar notificación por email
+            // Enviar notificación por email en background
             const emailNotification = await this._sendEmailNotification(reportData, userInfo);
             
             res.json({
@@ -318,9 +354,9 @@ class EstadisticasController {
                     },
                     por_entidad: distribucion
                 },
-                notification: emailNotification ? {
-                    email_sent: emailNotification.success,
-                    email_id: emailNotification.messageId || null
+                notification: emailNotification && emailNotification.success ? {
+                    email_queued: true,
+                    background: emailNotification.background || false
                 } : null,
                 timestamp: new Date().toISOString(),
                 responseTime
@@ -352,9 +388,9 @@ class EstadisticasController {
                 responseTime
             };
 
-            // Enviar notificación por email (en background, no esperar respuesta)
+            // Enviar notificación por email en background (no esperar respuesta)
             this._sendEmailNotification(reportData, userInfo).catch(error => {
-                console.error('❌ Error enviando notificación de CSV:', error.message);
+                console.error('❌ Error enviando notificación de CSV (no crítico):', error.message);
             });
             
             // Configurar headers para descarga CSV
@@ -387,12 +423,22 @@ class EstadisticasController {
     // Endpoint para probar el servicio de email
     async testEmail(req, res) {
         try {
+            if (!emailService) {
+                return res.status(503).json({
+                    success: false,
+                    message: 'Servicio de email no disponible',
+                    timestamp: new Date().toISOString()
+                });
+            }
+
             const result = await emailService.sendTestEmail();
             
             res.json({
                 success: true,
                 message: 'Test de email completado',
                 result,
+                email_service_available: !!emailService,
+                notifications_enabled: process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true',
                 timestamp: new Date().toISOString()
             });
         } catch (error) {
