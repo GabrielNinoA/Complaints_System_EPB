@@ -1,5 +1,5 @@
 const dbService = require('../services/database');
-const emailService = require('../services/email');
+const emailService = require('../services/emailService');
 
 class EstadisticasController {
     // Función auxiliar para obtener información del usuario
