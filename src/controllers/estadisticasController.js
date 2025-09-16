@@ -3,7 +3,7 @@ const dbService = require('../services/database');
 // Importar el servicio de email de forma segura
 let emailService = null;
 try {
-    emailService = require('../services/email');
+    emailService = require('../services/emailService');
 } catch (error) {
     console.warn('⚠️  Servicio de email no disponible:', error.message);
 }
