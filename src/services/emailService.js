@@ -4,6 +4,7 @@ class EmailService {
     constructor() {
         this.transporter = null;
         this.isConfigured = false;
+        this.initializationError = null;
         this.initializeTransporter();
     }
 
@@ -11,10 +12,12 @@ class EmailService {
         try {
             // Verificar que las variables de entorno estén configuradas
             if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-                console.warn('⚠️  Configuración de email incompleta');
+                console.warn('⚠️  Configuración de email incompleta - funcionando sin notificaciones');
+                this.initializationError = 'Variables de entorno faltantes';
                 return;
             }
 
+            // Configuración más robusta para Render
             this.transporter = nodemailer.createTransporter({
                 host: process.env.EMAIL_HOST,
                 port: parseInt(process.env.EMAIL_PORT) || 587,
@@ -22,6 +25,14 @@ class EmailService {
                 auth: {
                     user: process.env.EMAIL_USER,
                     pass: process.env.EMAIL_PASSWORD
+                },
+                // Configuraciones adicionales para mejor compatibilidad
+                connectionTimeout: 10000, // 10 segundos
+                greetingTimeout: 5000,    // 5 segundos
+                socketTimeout: 15000,     // 15 segundos
+                // Deshabilitar verificación SSL en desarrollo
+                tls: {
+                    rejectUnauthorized: process.env.NODE_ENV === 'production'
                 }
             });
 
@@ -30,6 +41,7 @@ class EmailService {
         } catch (error) {
             console.error('❌ Error configurando servicio de email:', error.message);
             this.isConfigured = false;
+            this.initializationError = error.message;
         }
     }
 
@@ -39,7 +51,13 @@ class EmailService {
         }
 
         try {
-            await this.transporter.verify();
+            // Timeout más corto para verificación
+            const verificationPromise = this.transporter.verify();
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Timeout')), 5000)
+            );
+            
+            await Promise.race([verificationPromise, timeoutPromise]);
             return true;
         } catch (error) {
             console.error('❌ Error verificando conexión de email:', error.message);
@@ -48,18 +66,24 @@ class EmailService {
     }
 
     async sendReportNotification(reportData, userInfo) {
+        // Si las notificaciones están deshabilitadas, salir silenciosamente
+        if (process.env.ENABLE_EMAIL_NOTIFICATIONS !== 'true') {
+            console.log('📧 Notificaciones por email deshabilitadas');
+            return { success: true, skipped: true, reason: 'Notificaciones deshabilitadas' };
+        }
+
+        // Si el email no está configurado, salir silenciosamente
         if (!this.isConfigured) {
             console.warn('⚠️  Email no configurado, saltando notificación');
-            return { success: false, error: 'Email no configurado' };
+            return { 
+                success: true, 
+                skipped: true, 
+                reason: 'Email no configurado',
+                error: this.initializationError 
+            };
         }
 
         try {
-            // Verificar que las notificaciones estén habilitadas
-            if (process.env.ENABLE_EMAIL_NOTIFICATIONS !== 'true') {
-                console.log('📧 Notificaciones por email deshabilitadas');
-                return { success: false, error: 'Notificaciones deshabilitadas' };
-            }
-
             const emailContent = this.generateReportEmailContent(reportData, userInfo);
             
             const mailOptions = {
@@ -70,7 +94,13 @@ class EmailService {
                 text: emailContent.text
             };
 
-            const result = await this.transporter.sendMail(mailOptions);
+            // Enviar con timeout
+            const sendPromise = this.transporter.sendMail(mailOptions);
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Email timeout')), 10000)
+            );
+
+            const result = await Promise.race([sendPromise, timeoutPromise]);
             
             console.log('📧 Email enviado exitosamente:', result.messageId);
             return { 
@@ -80,11 +110,13 @@ class EmailService {
             };
 
         } catch (error) {
-            console.error('❌ Error enviando email:', error.message);
+            console.error('❌ Error enviando email (no crítico):', error.message);
+            // No fallar el endpoint principal, solo loggear el error
             return { 
                 success: false, 
                 error: error.message,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                nonCritical: true
             };
         }
     }
@@ -229,7 +261,11 @@ Generado automáticamente el ${timestamp}
 
     async sendTestEmail() {
         if (!this.isConfigured) {
-            return { success: false, error: 'Email no configurado' };
+            return { 
+                success: false, 
+                error: 'Email no configurado',
+                details: this.initializationError
+            };
         }
 
         try {
