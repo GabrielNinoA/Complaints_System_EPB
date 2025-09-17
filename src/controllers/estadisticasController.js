@@ -9,6 +9,18 @@ try {
 }
 
 class EstadisticasController {
+    constructor() {
+        // Bind explícito de todos los métodos para evitar problemas de contexto
+        this.getEstadisticasGenerales = this.getEstadisticasGenerales.bind(this);
+        this.getQuejasPorEntidad = this.getQuejasPorEntidad.bind(this);
+        this.getTendenciaMensual = this.getTendenciaMensual.bind(this);
+        this.getReporteCompleto = this.getReporteCompleto.bind(this);
+        this.healthCheck = this.healthCheck.bind(this);
+        this.getReportes = this.getReportes.bind(this);
+        this.getReporteCSV = this.getReporteCSV.bind(this);
+        this.testEmail = this.testEmail.bind(this);
+    }
+
     // Función auxiliar para obtener información del usuario
     _getUserInfo(req) {
         return {
@@ -97,6 +109,7 @@ class EstadisticasController {
             res.status(500).json({
                 success: false,
                 message: 'Error obteniendo estadísticas generales',
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
                 timestamp: new Date().toISOString()
             });
         }
@@ -137,6 +150,7 @@ class EstadisticasController {
             res.status(500).json({
                 success: false,
                 message: 'Error obteniendo distribución por entidad',
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
                 timestamp: new Date().toISOString()
             });
         }
@@ -189,6 +203,7 @@ class EstadisticasController {
             res.status(500).json({
                 success: false,
                 message: 'Error obteniendo tendencia mensual',
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
                 timestamp: new Date().toISOString()
             });
         }
@@ -249,6 +264,7 @@ class EstadisticasController {
             res.status(500).json({
                 success: false,
                 message: 'Error generando reporte completo',
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
                 timestamp: new Date().toISOString()
             });
         }
@@ -312,16 +328,22 @@ class EstadisticasController {
                 success: false,
                 status: 'error',
                 message: 'Error en health check',
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
                 timestamp: new Date().toISOString()
             });
         }
     }
 
-    // Obtener reportes generales (compatibilidad con API original)
+    // Obtener reportes generales (compatibilidad con API original) - MÉTODO PRINCIPAL QUE FALLA
     async getReportes(req, res) {
         try {
             const startTime = Date.now();
             const userInfo = this._getUserInfo(req);
+            
+            // Validar que dbService esté disponible
+            if (!dbService) {
+                throw new Error('Servicio de base de datos no disponible');
+            }
             
             const estadisticas = await dbService.getEstadisticasGenerales();
             const distribucion = await dbService.getQuejasPorEntidad();
@@ -330,12 +352,12 @@ class EstadisticasController {
             // Preparar datos del reporte para email
             const reportData = {
                 tipo: 'Reportes Generales',
-                totalRegistros: estadisticas.totalQuejas,
+                totalRegistros: estadisticas?.totalQuejas || 0,
                 estadisticas: {
-                    total_quejas: estadisticas.totalQuejas,
-                    total_entidades: estadisticas.totalEntidades,
-                    quejas_hoy: estadisticas.quejasHoy,
-                    quejas_mes_actual: estadisticas.quejasMes
+                    total_quejas: estadisticas?.totalQuejas || 0,
+                    total_entidades: estadisticas?.totalEntidades || 0,
+                    quejas_hoy: estadisticas?.quejasHoy || 0,
+                    quejas_mes_actual: estadisticas?.quejasMes || 0
                 },
                 responseTime
             };
@@ -347,12 +369,12 @@ class EstadisticasController {
                 success: true,
                 data: {
                     resumen: {
-                        total_quejas: estadisticas.totalQuejas,
-                        total_entidades: estadisticas.totalEntidades,
-                        quejas_hoy: estadisticas.quejasHoy,
-                        quejas_mes_actual: estadisticas.quejasMes
+                        total_quejas: estadisticas?.totalQuejas || 0,
+                        total_entidades: estadisticas?.totalEntidades || 0,
+                        quejas_hoy: estadisticas?.quejasHoy || 0,
+                        quejas_mes_actual: estadisticas?.quejasMes || 0
                     },
-                    por_entidad: distribucion
+                    por_entidad: distribucion || []
                 },
                 notification: emailNotification && emailNotification.success ? {
                     email_queued: true,
@@ -363,9 +385,11 @@ class EstadisticasController {
             });
         } catch (error) {
             console.error('❌ Error obteniendo reportes:', error.message);
+            console.error('❌ Stack trace:', error.stack);
             res.status(500).json({
                 success: false,
                 message: 'Error obteniendo reportes',
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
                 timestamp: new Date().toISOString()
             });
         }
@@ -405,8 +429,8 @@ class EstadisticasController {
             
             // Agregar datos
             for (const queja of quejas) {
-                const descripcion = queja.descripcion.replace(/"/g, '""').replace(/\n/g, ' ');
-                csvContent += `${queja.id},"${queja.entidad_nombre}","${descripcion}","${queja.fecha_creacion}"\n`;
+                const descripcion = (queja.descripcion || '').replace(/"/g, '""').replace(/\n/g, ' ');
+                csvContent += `${queja.id},"${queja.entidad_nombre || ''}","${descripcion}","${queja.fecha_creacion}"\n`;
             }
             
             res.send(csvContent);
@@ -415,6 +439,7 @@ class EstadisticasController {
             res.status(500).json({
                 success: false,
                 message: 'Error generando reporte CSV',
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
                 timestamp: new Date().toISOString()
             });
         }
@@ -446,7 +471,7 @@ class EstadisticasController {
             res.status(500).json({
                 success: false,
                 message: 'Error en test de email',
-                error: error.message,
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
                 timestamp: new Date().toISOString()
             });
         }
