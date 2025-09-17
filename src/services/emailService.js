@@ -17,8 +17,8 @@ class EmailService {
                 return;
             }
 
-            // Configuración más robusta para Render
-            this.transporter = nodemailer.createTransporter({
+            // CORRECCIÓN: createTransport en lugar de createTransporter
+            this.transporter = nodemailer.createTransport({
                 host: process.env.EMAIL_HOST,
                 port: parseInt(process.env.EMAIL_PORT) || 587,
                 secure: process.env.EMAIL_SECURE === 'true', // false para puerto 587
