@@ -74,8 +74,10 @@ const ComplaintsList = () => {
         if (complaintsData.success) {
           setComplaints(complaintsData.data);
           // Suponiendo que la API devuelve el total de quejas para calcular las páginas
-          setTotalComplaints(complaintsData.total || 0);
-          setTotalPages(Math.ceil((complaintsData.total || 0) / complaintsPerPage));
+          const { total, totalPages, currentPage } = complaintsData.pagination;
+          setTotalComplaints(total);
+          setTotalPages(totalPages);
+          setCurrentPage(currentPage);
         } else {
           setError('No se pudieron cargar las quejas');
         }
