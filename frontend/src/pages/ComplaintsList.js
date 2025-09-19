@@ -68,7 +68,7 @@ const ComplaintsList = () => {
 
         // --- FETCH DE QUEJAS MODIFICADO ---
         // Ahora se pasa el número de página a la API
-        const complaintsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/quejas/entidad/${entityId}?page=${currentPage}`);
+        const complaintsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/quejas/entidad/${entityId}?limit=${complaintsPerPage}&offset=${(currentPage - 1) * complaintsPerPage}`);
         const complaintsData = await complaintsResponse.json();
         
         if (complaintsData.success) {
