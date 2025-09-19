@@ -17,7 +17,7 @@ async getAllQuejas(req, res) {
             });
         }
 
-        const { limit, offset } = validation.params;
+        let { limit, offset } = validation.params;
 
         // 🚨 Forzar máximo 10 por página
         if (!limit || limit > 10) {
@@ -180,7 +180,7 @@ async getAllQuejas(req, res) {
             }
 
             const entidadId = idValidation.id;
-            const { limit, offset } = paginationValidation.params;
+            let { limit, offset } = paginationValidation.params;
             if (!limit || limit > 10) {
                 limit = 10;
             }
