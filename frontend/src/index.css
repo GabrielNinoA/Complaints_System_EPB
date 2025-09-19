@@ -614,6 +614,46 @@ body {
 .dropdown-item:last-child {
   border-bottom: none;
 }
+/* Estilos para el contenedor de paginación */
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 24px;
+  gap: 8px; /* Espacio entre los botones */
+}
+
+/* Estilos generales para los botones de paginación */
+.pagination-button {
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+/* Estilo al pasar el mouse sobre los botones */
+.pagination-button:hover:not(:disabled) {
+  background-color: #e0e0e0;
+}
+
+/* Estilo para el botón de la página activa */
+.pagination-button.active {
+  background-color: #007bff;
+  color: white;
+  border-color: #007bff;
+  font-weight: bold;
+}
+
+/* Estilo para los botones deshabilitados */
+.pagination-button:disabled {
+  background-color: #e9ecef;
+  color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
 
 /* Responsive Design */
 @media (max-width: 768px) {

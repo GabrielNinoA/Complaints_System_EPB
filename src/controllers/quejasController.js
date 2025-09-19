@@ -3,57 +3,63 @@ const { QuejaValidator, QueryValidator } = require('../validators');
 
 class QuejasController {
     // Obtener todas las quejas con paginación
-    async getAllQuejas(req, res) {
-        try {
-            const startTime = Date.now();
-            
-            // Validar parámetros de paginación
-            const validation = QueryValidator.validatePagination(req.query);
-            if (!validation.isValid) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Parámetros de consulta inválidos',
-                    errors: validation.errors
-                });
-            }
-
-            const { limit, offset } = validation.params;
-            
-            // Obtener quejas y conteo total
-            const [quejas, totalCount] = await Promise.all([
-                dbService.getAllQuejas(limit, offset),
-                dbService.getQuejasCount()
-            ]);
-
-            // Calcular metadatos de paginación
-            const totalPages = Math.ceil(totalCount / limit);
-            const currentPage = Math.floor(offset / limit) + 1;
-
-            res.json({
-                success: true,
-                data: quejas,
-                pagination: {
-                    total: totalCount,
-                    count: quejas.length,
-                    limit,
-                    offset,
-                    currentPage,
-                    totalPages,
-                    hasNext: offset + limit < totalCount,
-                    hasPrev: offset > 0
-                },
-                timestamp: new Date().toISOString(),
-                responseTime: Date.now() - startTime
-            });
-        } catch (error) {
-            console.error('❌ Error obteniendo quejas:', error.message);
-            res.status(500).json({
+async getAllQuejas(req, res) {
+    try {
+        const startTime = Date.now();
+        
+        // Validar parámetros de paginación
+        const validation = QueryValidator.validatePagination(req.query);
+        if (!validation.isValid) {
+            return res.status(400).json({
                 success: false,
-                message: 'Error obteniendo quejas',
-                timestamp: new Date().toISOString()
+                message: 'Parámetros de consulta inválidos',
+                errors: validation.errors
             });
         }
+
+        let { limit, offset } = validation.params;
+
+        // 🚨 Forzar máximo 10 por página
+        if (!limit || limit > 10) {
+            limit = 10;
+        }
+
+        // Obtener quejas y conteo total
+        const [quejas, totalCount] = await Promise.all([
+            dbService.getAllQuejas(limit, offset),
+            dbService.getQuejasCount()
+        ]);
+
+        // Calcular metadatos de paginación
+        const totalPages = Math.ceil(totalCount / limit);
+        const currentPage = Math.floor(offset / limit) + 1;
+
+        res.json({
+            success: true,
+            data: quejas,
+            pagination: {
+                total: totalCount,
+                count: quejas.length,
+                limit,
+                offset,
+                currentPage,
+                totalPages,
+                hasNext: offset + limit < totalCount,
+                hasPrev: offset > 0
+            },
+            timestamp: new Date().toISOString(),
+            responseTime: Date.now() - startTime
+        });
+    } catch (error) {
+        console.error('❌ Error obteniendo quejas:', error.message);
+        res.status(500).json({
+            success: false,
+            message: 'Error obteniendo quejas',
+            timestamp: new Date().toISOString()
+        });
     }
+}
+
 
     // Obtener queja por ID
     async getQuejaById(req, res) {
@@ -174,7 +180,10 @@ class QuejasController {
             }
 
             const entidadId = idValidation.id;
-            const { limit, offset } = paginationValidation.params;
+            let { limit, offset } = paginationValidation.params;
+            if (!limit || limit > 10) {
+                limit = 10;
+            }
 
             // Verificar que la entidad existe
             const entidad = await dbService.getEntidadById(entidadId);
