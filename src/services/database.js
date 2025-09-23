@@ -135,7 +135,8 @@ class DatabaseService {
                 e.nombre as entidad_nombre,
                 q.descripcion,
                 q.created_at,
-                q.updated_at
+                q.updated_at,
+                (SELECT COUNT(*) FROM comentarios c WHERE c.queja_id = q.id) as total_comentarios
             FROM quejas q 
             INNER JOIN entidades e ON q.entidad_id = e.id 
             ORDER BY q.created_at DESC 
@@ -152,7 +153,8 @@ class DatabaseService {
                 e.nombre as entidad_nombre,
                 q.descripcion,
                 q.created_at,
-                q.updated_at
+                q.updated_at,
+                (SELECT COUNT(*) FROM comentarios c WHERE c.queja_id = q.id) as total_comentarios
             FROM quejas q 
             INNER JOIN entidades e ON q.entidad_id = e.id 
             WHERE q.id = ?
@@ -189,22 +191,23 @@ class DatabaseService {
                 throw new Error('ID de entidad inválido');
             }
             
-            // Primero intentamos una consulta simple sin paginación
-            const simpleQuery = `
+            // Consulta con conteo de comentarios
+            const query = `
                 SELECT 
                     q.id,
                     q.entidad_id,
                     e.nombre as entidad_nombre,
                     q.descripcion,
                     q.created_at,
-                    q.updated_at
+                    q.updated_at,
+                    (SELECT COUNT(*) FROM comentarios c WHERE c.queja_id = q.id) as total_comentarios
                 FROM quejas q 
                 INNER JOIN entidades e ON q.entidad_id = e.id 
                 WHERE q.entidad_id = ?
                 ORDER BY q.created_at DESC
             `;
             
-            const allResults = await this.execute(simpleQuery, [entidadIdInt]);
+            const allResults = await this.execute(query, [entidadIdInt]);
             
             // Aplicar paginación manualmente
             const limitInt = parseInt(limit, 10) || 50;
@@ -223,12 +226,122 @@ class DatabaseService {
         return result.affectedRows > 0;
     }
 
+    // ==================== MÉTODOS PARA COMENTARIOS ====================
+
+    async getAllComentarios(quejaId) {
+        const query = `
+            SELECT 
+                id,
+                queja_id,
+                texto,
+                fecha_comentario,
+                created_at,
+                updated_at
+            FROM comentarios 
+            WHERE queja_id = ? 
+            ORDER BY fecha_comentario ASC
+        `;
+        return await this.execute(query, [quejaId]);
+    }
+
+    async getComentarioById(id) {
+        const query = `
+            SELECT 
+                c.id,
+                c.queja_id,
+                c.texto,
+                c.fecha_comentario,
+                c.created_at,
+                c.updated_at,
+                q.descripcion as queja_descripcion,
+                e.nombre as entidad_nombre
+            FROM comentarios c
+            INNER JOIN quejas q ON c.queja_id = q.id
+            INNER JOIN entidades e ON q.entidad_id = e.id
+            WHERE c.id = ?
+        `;
+        const result = await this.execute(query, [id]);
+        return result.length > 0 ? result[0] : null;
+    }
+
+    async createComentario(comentarioData) {
+        const query = `
+            INSERT INTO comentarios (queja_id, texto, fecha_comentario) 
+            VALUES (?, ?, ?)
+        `;
+        
+        // Si no se proporciona fecha_comentario, usar la fecha actual
+        const fechaComentario = comentarioData.fecha_comentario || new Date();
+        
+        const result = await this.execute(query, [
+            comentarioData.queja_id,
+            comentarioData.texto,
+            fechaComentario
+        ]);
+        
+        // Obtener el comentario recién creado
+        const newComentario = await this.getComentarioById(result.insertId);
+        return {
+            insertId: result.insertId,
+            ...newComentario
+        };
+    }
+
+    async updateComentario(id, texto) {
+        const query = `
+            UPDATE comentarios 
+            SET texto = ?, updated_at = CURRENT_TIMESTAMP 
+            WHERE id = ?
+        `;
+        const result = await this.execute(query, [texto, id]);
+        return result.affectedRows > 0;
+    }
+
+    async deleteComentario(id) {
+        const query = 'DELETE FROM comentarios WHERE id = ?';
+        const result = await this.execute(query, [id]);
+        return result.affectedRows > 0;
+    }
+
+    async getComentariosCount(quejaId) {
+        const query = 'SELECT COUNT(*) as count FROM comentarios WHERE queja_id = ?';
+        const result = await this.execute(query, [quejaId]);
+        return result[0].count;
+    }
+
+    // Obtener quejas con sus comentarios más recientes
+    async getQuejasConComentariosRecientes(limit = 10) {
+        const query = `
+            SELECT 
+                q.id,
+                q.entidad_id,
+                e.nombre as entidad_nombre,
+                q.descripcion,
+                q.created_at as queja_fecha,
+                c.texto as ultimo_comentario,
+                c.fecha_comentario as fecha_ultimo_comentario,
+                (SELECT COUNT(*) FROM comentarios cc WHERE cc.queja_id = q.id) as total_comentarios
+            FROM quejas q
+            INNER JOIN entidades e ON q.entidad_id = e.id
+            LEFT JOIN comentarios c ON q.id = c.queja_id 
+            WHERE c.id = (
+                SELECT MAX(cc.id) 
+                FROM comentarios cc 
+                WHERE cc.queja_id = q.id
+            ) OR c.id IS NULL
+            ORDER BY COALESCE(c.fecha_comentario, q.created_at) DESC
+            LIMIT ?
+        `;
+        return await this.execute(query, [limit]);
+    }
+
     // ==================== MÉTODOS PARA ESTADÍSTICAS ====================
 
     async getEstadisticasGenerales() {
         const queries = {
             totalQuejas: 'SELECT COUNT(*) as total FROM quejas',
             totalEntidades: 'SELECT COUNT(*) as total FROM entidades WHERE estado = true',
+            totalComentarios: 'SELECT COUNT(*) as total FROM comentarios',
             quejasHoy: `
                 SELECT COUNT(*) as total 
                 FROM quejas 
@@ -239,6 +352,17 @@ class DatabaseService {
                 FROM quejas 
                 WHERE MONTH(created_at) = MONTH(CURDATE()) 
                 AND YEAR(created_at) = YEAR(CURDATE())
+            `,
+            comentariosHoy: `
+                SELECT COUNT(*) as total 
+                FROM comentarios 
+                WHERE DATE(fecha_comentario) = CURDATE()
+            `,
+            comentariosMes: `
+                SELECT COUNT(*) as total 
+                FROM comentarios 
+                WHERE MONTH(fecha_comentario) = MONTH(CURDATE()) 
+                AND YEAR(fecha_comentario) = YEAR(CURDATE())
             `
         };
 
@@ -257,9 +381,11 @@ class DatabaseService {
             SELECT 
                 e.id,
                 e.nombre as entidad, 
-                COUNT(q.id) as count 
+                COUNT(q.id) as count,
+                COUNT(c.id) as total_comentarios
             FROM entidades e 
             LEFT JOIN quejas q ON e.id = q.entidad_id 
+            LEFT JOIN comentarios c ON q.id = c.queja_id
             WHERE e.estado = true
             GROUP BY e.id, e.nombre 
             ORDER BY count DESC
@@ -274,6 +400,19 @@ class DatabaseService {
                 COUNT(*) as count 
             FROM quejas 
             GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+            ORDER BY mes DESC
+            LIMIT ?
+        `;
+        return await this.execute(query, [limite]);
+    }
+
+    async getComentariosPorMes(limite = 12) {
+        const query = `
+            SELECT 
+                DATE_FORMAT(fecha_comentario, '%Y-%m') as mes,
+                COUNT(*) as count 
+            FROM comentarios 
+            GROUP BY DATE_FORMAT(fecha_comentario, '%Y-%m')
             ORDER BY mes DESC
             LIMIT ?
         `;

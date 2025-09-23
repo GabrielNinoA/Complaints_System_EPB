@@ -10,27 +10,23 @@ class EmailService {
 
     initializeTransporter() {
         try {
-            // Verificar que las variables de entorno estén configuradas
             if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
                 console.warn('⚠️  Configuración de email incompleta - funcionando sin notificaciones');
                 this.initializationError = 'Variables de entorno faltantes';
                 return;
             }
 
-            // CORRECCIÓN: createTransport en lugar de createTransporter
             this.transporter = nodemailer.createTransport({
                 host: process.env.EMAIL_HOST,
                 port: parseInt(process.env.EMAIL_PORT) || 587,
-                secure: process.env.EMAIL_SECURE === 'true', // false para puerto 587
+                secure: process.env.EMAIL_SECURE === 'true', 
                 auth: {
                     user: process.env.EMAIL_USER,
                     pass: process.env.EMAIL_PASSWORD
                 },
-                // Configuraciones adicionales para mejor compatibilidad
-                connectionTimeout: 10000, // 10 segundos
-                greetingTimeout: 5000,    // 5 segundos
-                socketTimeout: 15000,     // 15 segundos
-                // Deshabilitar verificación SSL en desarrollo
+                connectionTimeout: 10000, 
+                greetingTimeout: 5000,    
+                socketTimeout: 15000,     
                 tls: {
                     rejectUnauthorized: process.env.NODE_ENV === 'production'
                 }
@@ -51,7 +47,6 @@ class EmailService {
         }
 
         try {
-            // Timeout más corto para verificación
             const verificationPromise = this.transporter.verify();
             const timeoutPromise = new Promise((_, reject) => 
                 setTimeout(() => reject(new Error('Timeout')), 5000)
@@ -66,13 +61,11 @@ class EmailService {
     }
 
     async sendReportNotification(reportData, userInfo) {
-        // Si las notificaciones están deshabilitadas, salir silenciosamente
         if (process.env.ENABLE_EMAIL_NOTIFICATIONS !== 'true') {
             console.log('📧 Notificaciones por email deshabilitadas');
             return { success: true, skipped: true, reason: 'Notificaciones deshabilitadas' };
         }
 
-        // Si el email no está configurado, salir silenciosamente
         if (!this.isConfigured) {
             console.warn('⚠️  Email no configurado, saltando notificación');
             return { 
@@ -94,7 +87,6 @@ class EmailService {
                 text: emailContent.text
             };
 
-            // Enviar con timeout
             const sendPromise = this.transporter.sendMail(mailOptions);
             const timeoutPromise = new Promise((_, reject) => 
                 setTimeout(() => reject(new Error('Email timeout')), 10000)
@@ -111,7 +103,6 @@ class EmailService {
 
         } catch (error) {
             console.error('❌ Error enviando email (no crítico):', error.message);
-            // No fallar el endpoint principal, solo loggear el error
             return { 
                 success: false, 
                 error: error.message,
