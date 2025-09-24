@@ -1,18 +1,3 @@
-# Sistema de Quejas Boyacá v2.0 - Backend Reestructurado
-
-Este directorio contiene la versión reestructurada del Sistema de Gestión de Quejas para entidades públicas de Boyacá.
-
-## 🏗️ Arquitectura del Backend
-
-### Tecnologías Utilizadas
-- **Node.js v18+** - Runtime
-- **Express.js v4.18+** - Framework web
-- **MySQL2 v3.6+** - Cliente MySQL con pool de conexiones
-- **Clever Cloud MySQL** - Base de datos en la nube
-- **Render** - Hosting y deployment
-
-### Estructura del Proyecto
-```
 src/
 ├── config/          # Configuraciones (DB, etc.)
 ├── controllers/     # Lógica de negocio
@@ -20,106 +5,87 @@ src/
 ├── routes/          # Definición de rutas
 ├── services/        # Servicios (DB, etc.)
 └── validators/      # Validaciones de datos
-```
+# Sistema de Quejas Boyacá
 
-## 🗄️ Configuración de Base de Datos
+Sistema web para la gestión de quejas y reclamos de entidades públicas de Boyacá.
 
-### Prerrequisitos
-- MySQL Client instalado en tu sistema
-- Acceso a internet para conectar con Clever Cloud
-- Variables de entorno configuradas en el archivo `.env`
+---
 
-### 🚀 Instalación Automática de Base de Datos
+## Tecnologías usadas y requeridas
 
-Para crear automáticamente las tablas y cargar las entidades iniciales en la base de datos de Clever Cloud, ejecuta el siguiente comando:
+- [Node.js v18+](https://nodejs.org/) (backend)
+- [npm v9+](https://www.npmjs.com/get-npm) (gestor de paquetes)
+- [Express v4.18+](https://expressjs.com/)
+- [MySQL2 v3.6+](https://www.npmjs.com/package/mysql2) (cliente MySQL para Node)
+- [Clever Cloud](https://www.clever-cloud.com/) (hosting base de datos MySQL)
+- [Render](https://render.com/) (hosting backend)
+- [React v18+](https://react.dev/) (frontend)
+- [React Router v6+](https://reactrouter.com/)
+- [Axios](https://axios-http.com/) (peticiones HTTP)
 
-```bash
-Get-Content database-setup.sql | mysql -h Host_DB -P port -u user_DB -ppassword_DB
-```
+---
 
-### 📋 Explicación del comando:
+## ¿Cómo correr el programa?
 
-- `-h`: Host de la base de datos
-- `-P`: Puerto de conexión
-- `-u`: Usuario de la base de datos
-- `-p`: Contraseña (sin espacio después de -p)
-- `Get-Content`: Archivo SQL a ejecutar
+### 1. Configuración y ejecución de la base de datos en Clever Cloud
 
-### ✅ Verificación
+1. Crea una base de datos MySQL en Clever Cloud.
+2. Obtén los datos de conexión (host, usuario, contraseña, puerto, nombre de la base de datos).
+3. Ejecuta el script `database-setup.sql` para crear las tablas y datos iniciales:
 
-Después de ejecutar el comando, deberías ver:
-- Confirmación de creación de tablas
-- Lista de entidades insertadas
-- Estructura de las tablas creadas
+	**En PowerShell:**
+	```bash
+	Get-Content database-setup.sql | mysql -h <host> -P <puerto> -u <usuario> -p<contraseña> <nombre_db>
+	```
+	**En Linux/Mac:**
+	```bash
+	mysql -h <host> -P <puerto> -u <usuario> -p<contraseña> <nombre_db> < database-setup.sql
+	```
 
-## 🚀 Instalación y Desarrollo
+4. Verifica que las tablas y entidades se hayan creado correctamente.
 
-### Instalación de dependencias
-```bash
-npm install
-```
+### 2. Configuración del entorno local
 
-### Variables de entorno
-Copia las variables del archivo `.env` a tu entorno o plataforma de deployment.
+1. Copia el archivo `.env.example` a `.env` y completa los valores según tu configuración (ver sección siguiente).
+2. Instala las dependencias del backend:
+	```bash
+	npm install
+	```
+3. Instala las dependencias del frontend:
+	```bash
+	cd frontend
+	npm install
+	cd ..
+	```
 
-### Desarrollo local
-```bash
-npm run dev
-```
+### 3. Ejecución en local
 
-### Producción
-```bash
-npm start
-```
+1. Inicia el backend:
+	```bash
+	npm start
+	```
+2. Inicia el frontend (en otra terminal):
+	```bash
+	cd frontend
+	npm start
+	```
+3. Accede a la app en [http://localhost:3000](http://localhost:3000) (backend) y [http://localhost:3001](http://localhost:3001) (frontend, el puerto puede variar).
 
-## 📡 API Endpoints
+---
 
-### Entidades
-- `GET /api/entidades` - Obtener todas las entidades
-- `GET /api/entidades/:id` - Obtener entidad por ID
-- `GET /api/entidades/search?nombre=` - Buscar entidad por nombre
+## .env de ejemplo (explicación de variables)
 
-### Quejas
-- `GET /api/quejas` - Obtener todas las quejas (con paginación)
-- `GET /api/quejas/:id` - Obtener queja por ID
-- `POST /api/quejas` - Crear nueva queja
-- `GET /api/quejas/entidad/:entidadId` - Quejas por entidad
-- `DELETE /api/quejas/:id` - Eliminar queja (admin)
+Revisa el archivo `.env.example` para ver todas las variables necesarias. Cada variable tiene una breve descripción de lo que debe ir en ese campo.
 
-### Estadísticas
-- `GET /api/estadisticas` - Estadísticas generales
-- `GET /api/estadisticas/entidades` - Distribución por entidad
-- `GET /api/estadisticas/tendencia` - Tendencia mensual
-- `GET /api/estadisticas/reporte` - Reporte completo
+---
 
-### Utilidades
-- `GET /health` - Health check básico
-- `GET /api/health` - Health check completo con DB
-- `GET /api/docs` - Documentación de la API
+## ¿Cómo montarlo en Render?
 
-## 🔧 Características Técnicas
-
-### Seguridad
-- Rate limiting configurable por endpoint
-- Helmet para headers de seguridad
-- CORS configurado para producción
-- Validación de entrada robusta
-- Logging de operaciones
-
-### Performance
-- Pool de conexiones MySQL
-- Compresión gzip
-- Paginación en consultas grandes
-- Queries optimizadas con índices
-
-### Monitoreo
-- Health checks automáticos
-- Logging estructurado
-- Métricas de tiempo de respuesta
-- Manejo graceful de errores
-
-### Deployment en Render
-- Configurado para web service nativo
-- Variables de entorno desde dashboard
-- Auto-deployment desde git
-- Logs centralizados
+1. Sube el proyecto a un repositorio en GitHub.
+2. Crea un nuevo servicio web en [Render](https://render.com/):
+	- Elige el repositorio.
+	- Selecciona el build command: `npm install && npm run build`
+	- Selecciona el start command: `npm start`
+3. Configura las variables de entorno en el dashboard de Render (usa los mismos valores que en tu `.env`).
+4. Asegúrate de que la base de datos de Clever Cloud esté accesible desde Render (IP pública permitida).
+5. Render detectará automáticamente los cambios y hará deploy continuo.

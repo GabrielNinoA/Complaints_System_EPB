@@ -25,7 +25,8 @@ router.get('/', (req, res) => {
             entidades: '/api/entidades',
             quejas: '/api/quejas',
             estadisticas: '/api/estadisticas',
-            health: '/api/health'
+            health: '/api/health',
+            testEmail: '/api/test-email'
         },
         documentation: '/api/docs',
         timestamp: new Date().toISOString()
@@ -34,6 +35,11 @@ router.get('/', (req, res) => {
 
 // Health check
 router.get('/health', asyncHandler(estadisticasController.healthCheck));
+
+// Test de email
+router.get('/test-email',
+    asyncHandler(estadisticasController.testEmail)
+);
 
 // ==================== RUTAS DE ENTIDADES ====================
 
