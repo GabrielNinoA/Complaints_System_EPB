@@ -5,6 +5,7 @@ import Home from './pages/Home';
 import WriteComplaint from './pages/WriteComplaint';
 import ConsultComplaints from './pages/ConsultComplaints';
 import ComplaintsList from './pages/ComplaintsList';
+import ComplaintDetail from './pages/ComplaintDetail';
 import Reports from './pages/Reports';
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
         <Route path="/escribir-queja" element={<WriteComplaint />} />
         <Route path="/consultar-quejas" element={<ConsultComplaints />} />
         <Route path="/quejas/:entityId" element={<ComplaintsList />} />
+        <Route path="/queja/:id" element={<ComplaintDetail />} />
         <Route path="/reportes" element={<Reports />} />
       </Routes>
     </Layout>

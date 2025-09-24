@@ -44,6 +44,106 @@ class QuejaValidator {
     }
 }
 
+// Validador para comentarios
+class ComentarioValidator {
+    static validate(data) {
+        const errors = [];
+
+        // Validar queja_id
+        if (!data.queja_id) {
+            errors.push('ID de queja es requerido');
+        } else if (isNaN(data.queja_id) || parseInt(data.queja_id) <= 0) {
+            errors.push('ID de queja debe ser un número válido');
+        }
+
+        // Validar texto
+        const textValidation = this.validateTexto(data.texto);
+        if (!textValidation.isValid) {
+            errors.push(...textValidation.errors);
+        }
+
+        // Validar fecha_comentario (opcional)
+        if (data.fecha_comentario) {
+            const fecha = new Date(data.fecha_comentario);
+            if (isNaN(fecha.getTime())) {
+                errors.push('Fecha de comentario inválida');
+            } else {
+                // No permitir fechas futuras
+                const ahora = new Date();
+                if (fecha > ahora) {
+                    errors.push('La fecha del comentario no puede ser futura');
+                }
+                
+                // No permitir fechas muy antiguas (más de 1 año)
+                const unAnoAtras = new Date();
+                unAnoAtras.setFullYear(unAnoAtras.getFullYear() - 1);
+                if (fecha < unAnoAtras) {
+                    errors.push('La fecha del comentario no puede ser anterior a un año');
+                }
+            }
+        }
+
+        return {
+            isValid: errors.length === 0,
+            errors
+        };
+    }
+
+    static validateTexto(texto) {
+        const errors = [];
+
+        if (!texto) {
+            errors.push('El texto del comentario es requerido');
+        } else {
+            const textoLimpio = texto.trim();
+            
+            if (textoLimpio.length < 3) {
+                errors.push('El comentario debe tener al menos 3 caracteres');
+            }
+            
+            if (textoLimpio.length > 2000) {
+                errors.push('El comentario no puede exceder 2000 caracteres');
+            }
+
+            // Validar que no sea solo espacios o caracteres especiales
+            if (!/[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]/.test(textoLimpio)) {
+                errors.push('El comentario debe contener texto válido');
+            }
+
+            // Validar que no contenga solo caracteres repetidos
+            if (textoLimpio.length > 5) {
+                const primerCaracter = textoLimpio[0];
+                const todoIgual = textoLimpio.split('').every(char => char === primerCaracter);
+                if (todoIgual) {
+                    errors.push('El comentario no puede contener solo caracteres repetidos');
+                }
+            }
+        }
+
+        return {
+            isValid: errors.length === 0,
+            errors
+        };
+    }
+
+    static sanitize(data) {
+        const sanitized = {
+            queja_id: parseInt(data.queja_id),
+            texto: data.texto ? data.texto.trim() : ''
+        };
+
+        // Agregar fecha_comentario si se proporciona
+        if (data.fecha_comentario) {
+            const fecha = new Date(data.fecha_comentario);
+            if (!isNaN(fecha.getTime())) {
+                sanitized.fecha_comentario = fecha;
+            }
+        }
+
+        return sanitized;
+    }
+}
+
 // Validador para parámetros de consulta
 class QueryValidator {
     static validatePagination(query) {
@@ -137,16 +237,58 @@ class FilterValidator {
             errors.push('La fecha de inicio debe ser anterior a la fecha de fin');
         }
 
+        // Validar que el rango no sea mayor a 1 año
+        if (result.fechaInicio && result.fechaFin) {
+            const diffTime = Math.abs(result.fechaFin - result.fechaInicio);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            if (diffDays > 365) {
+                errors.push('El rango de fechas no puede ser mayor a 1 año');
+            }
+        }
+
+        // Validar que las fechas no sean futuras
+        const ahora = new Date();
+        if (result.fechaInicio && result.fechaInicio > ahora) {
+            errors.push('La fecha de inicio no puede ser futura');
+        }
+        if (result.fechaFin && result.fechaFin > ahora) {
+            errors.push('La fecha de fin no puede ser futura');
+        }
+
         return {
             isValid: errors.length === 0,
             errors,
             dates: result
         };
     }
+
+    static validateSearchTerm(searchTerm) {
+        const errors = [];
+        const result = {};
+
+        if (searchTerm) {
+            const term = searchTerm.trim();
+            
+            if (term.length < 2) {
+                errors.push('El término de búsqueda debe tener al menos 2 caracteres');
+            } else if (term.length > 100) {
+                errors.push('El término de búsqueda no puede exceder 100 caracteres');
+            } else {
+                result.searchTerm = term;
+            }
+        }
+
+        return {
+            isValid: errors.length === 0,
+            errors,
+            search: result
+        };
+    }
 }
 
 module.exports = {
     QuejaValidator,
+    ComentarioValidator,
     QueryValidator,
     FilterValidator
 };

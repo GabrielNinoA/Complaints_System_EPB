@@ -1,64 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-
-// Componente para los botones de paginación
-const Pagination = ({ currentPage, totalPages, onPageChange }) => {
-  const pageNumbers = [];
-  for (let i = 1; i <= totalPages; i++) {
-    pageNumbers.push(i);
-  }
-
-  if (totalPages <= 1) {
-    return null; // No mostrar paginación si solo hay una página
-  }
-
-  return React.createElement('div', { className: 'pagination-container' },
-    // Botón "Anterior"
-    React.createElement('button', {
-      onClick: () => onPageChange(currentPage - 1),
-      disabled: currentPage === 1,
-      className: 'pagination-button'
-    }, 'Anterior'),
-
-    // Botones de número de página
-    ...pageNumbers.map(number =>
-      React.createElement('button', {
-        key: number,
-        onClick: () => onPageChange(number),
-        className: `pagination-button ${currentPage === number ? 'active' : ''}`
-      }, number)
-    ),
-
-    // Botón "Siguiente"
-    React.createElement('button', {
-      onClick: () => onPageChange(currentPage + 1),
-      disabled: currentPage === totalPages,
-      className: 'pagination-button'
-    }, 'Siguiente')
-  );
-};
-
+import { useParams, useNavigate } from 'react-router-dom';
+import config from '../config/config';
 
 const ComplaintsList = () => {
   const { entityId } = useParams();
+  const navigate = useNavigate();
   const [complaints, setComplaints] = useState([]);
   const [entityName, setEntityName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // --- NUEVOS ESTADOS PARA PAGINACIÓN ---
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(0);
-  const [totalComplaints, setTotalComplaints] = useState(0);
-  const complaintsPerPage = 10; // El backend limita a 10
 
   useEffect(() => {
     const fetchComplaints = async () => {
       try {
         setLoading(true);
         
-        // Fetch entity name (se mantiene igual)
-        const entityResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/entidades`);
+        // Fetch entity name
+        const entityResponse = await fetch(`${config.API_URL}/api/entidades`);
         const entityData = await entityResponse.json();
         
         if (entityData.success) {
@@ -66,18 +24,12 @@ const ComplaintsList = () => {
           setEntityName(entity ? entity.nombre : 'Entidad desconocida');
         }
 
-        // --- FETCH DE QUEJAS MODIFICADO ---
-        // Ahora se pasa el número de página a la API
-        const complaintsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/quejas/entidad/${entityId}?limit=${complaintsPerPage}&offset=${(currentPage - 1) * complaintsPerPage}`);
+        // Fetch complaints for this entity
+        const complaintsResponse = await fetch(`${config.API_URL}/api/quejas/entidad/${entityId}`);
         const complaintsData = await complaintsResponse.json();
         
         if (complaintsData.success) {
           setComplaints(complaintsData.data);
-          // Suponiendo que la API devuelve el total de quejas para calcular las páginas
-          const { total, totalPages, currentPage } = complaintsData.pagination;
-          setTotalComplaints(total);
-          setTotalPages(totalPages);
-          setCurrentPage(currentPage);
         } else {
           setError('No se pudieron cargar las quejas');
         }
@@ -92,15 +44,25 @@ const ComplaintsList = () => {
     if (entityId) {
       fetchComplaints();
     }
-    // --- SE AGREGA currentPage A LAS DEPENDENCIAS ---
-    // El efecto se ejecutará cuando cambie la entidad o la página
-  }, [entityId, currentPage]);
-  
-  // Función para cambiar de página
-  const handlePageChange = (pageNumber) => {
-    setCurrentPage(pageNumber);
+  }, [entityId]);
+
+  const handleComplaintClick = (complaintId) => {
+    navigate(`/queja/${complaintId}`);
   };
 
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const truncateText = (text, maxLength = 150) => {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+  };
 
   if (loading) {
     return React.createElement('div', { className: 'page-container' },
@@ -123,9 +85,14 @@ const ComplaintsList = () => {
       `Quejas de ${entityName}`
     ),
     
-    React.createElement('div', { className: 'complaints-count' },
-      // Se muestra el total de quejas obtenidas de la API
-      `Total de quejas: ${totalComplaints}`
+    React.createElement('div', { className: 'complaints-summary' },
+      React.createElement('div', { className: 'complaints-count' },
+        `Total de quejas: ${complaints.length}`
+      ),
+      React.createElement('button', {
+        className: 'btn-back',
+        onClick: () => navigate('/consultar-quejas')
+      }, '← Volver a consultar')
     ),
     
     React.createElement('div', { className: 'complaints-list' },
@@ -136,25 +103,34 @@ const ComplaintsList = () => {
         : complaints.map((complaint, index) =>
             React.createElement('div', {
               key: complaint.id,
-              className: 'complaint-item'
+              className: 'complaint-item clickable',
+              onClick: () => handleComplaintClick(complaint.id)
             },
-              React.createElement('div', { className: 'complaint-title' },
-                // Se calcula el número de queja basado en la página actual
-                `Queja #${String((currentPage - 1) * complaintsPerPage + index + 1).padStart(2, '0')}`
+              React.createElement('div', { className: 'complaint-header' },
+                React.createElement('div', { className: 'complaint-title' },
+                  `Queja #${String(index + 1).padStart(2, '0')}`
+                ),
+                React.createElement('div', { className: 'complaint-meta' },
+                  React.createElement('span', { className: 'complaint-date' },
+                    formatDate(complaint.created_at)
+                  ),
+                  complaint.total_comentarios !== undefined && complaint.total_comentarios > 0 && 
+                    React.createElement('span', { className: 'comments-badge' },
+                      `${complaint.total_comentarios} comentario${complaint.total_comentarios > 1 ? 's' : ''}`
+                    )
+                )
               ),
               React.createElement('div', { className: 'complaint-description' },
-                complaint.descripcion
+                truncateText(complaint.descripcion)
+              ),
+              React.createElement('div', { className: 'complaint-actions' },
+                React.createElement('span', { className: 'view-details' },
+                  'Ver detalles →'
+                )
               )
             )
           )
-    ),
-    
-    // --- SE AGREGA EL COMPONENTE DE PAGINACIÓN ---
-    React.createElement(Pagination, {
-      currentPage: currentPage,
-      totalPages: totalPages,
-      onPageChange: handlePageChange
-    })
+    )
   );
 };
 
