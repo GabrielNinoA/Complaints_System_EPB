@@ -680,4 +680,26 @@ body {
   .form-container {
     padding: 20px;
   }
+  /* Encabezado de cada queja: título a la izquierda y ⋮ a la derecha */
+.complaint-header {
+  display: flex;
+  justify-content: space-between; /* separa título y botón */
+  align-items: center;
+}
+
+/* Botón de menú ⋮ */
+.complaint-menu-button {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  color: rgba(14, 22, 33, 1); /* mismo color del texto */
+}
+
+.complaint-menu-button:hover {
+  color: rgba(248, 204, 111, 1); /* resalta en hover con el amarillo del tema */
+}
+
 }
