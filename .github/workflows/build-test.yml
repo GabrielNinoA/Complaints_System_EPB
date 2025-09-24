@@ -37,6 +37,9 @@ jobs:
 
       - name: Install dependencies (Backend)
         run: npm install
+        
+      - name: Run tests (Backend) 
+        run: npm test
 
       - name: Run build check (Backend)
         run: npm run build --if-present
