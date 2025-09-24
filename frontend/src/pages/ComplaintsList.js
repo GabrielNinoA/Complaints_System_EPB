@@ -143,10 +143,23 @@ const ComplaintsList = () => {
                   // Se calcula el número de queja basado en la página actual
                   `Queja #${String((currentPage - 1) * complaintsPerPage + index + 1).padStart(2, '0')}`
                 ),
-                React.createElement('button', {
-                  className: 'complaint-menu-button',
-                  onClick: () => console.log(`Menú de opciones para queja ${complaint.id}`)
-                }, '⋮')
+                React.createElement('div', { className: 'menu-wrapper' },
+                  React.createElement('button', {
+                    className: 'complaint-menu-button',
+                    onClick: () => toggleMenu(complaint.id)
+                  }, '⋮'),
+                  openMenuId === complaint.id &&
+                  React.createElement('div', { className: 'complaint-menu' },
+                    React.createElement('button', {
+                      onClick: () => handleDelete(complaint.id),
+                      className: 'menu-option'
+                    }, 'Borrar queja'),
+                    React.createElement('button', {
+                      onClick: () => handleUpdate(complaint.id),
+                      className: 'menu-option'
+                    }, 'Actualizar estado')
+                  )   
+                )   
               ),
               React.createElement('div', { className: 'complaint-description' },
                   complaint.descripcion

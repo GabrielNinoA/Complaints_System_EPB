@@ -681,29 +681,60 @@ body {
     padding: 20px;
   }
   /* Encabezado de cada queja: título a la izquierda y ⋮ a la derecha */
-.complaint-header {
-  display: flex;
-  justify-content: space-between; /* separa título y botón */
-  align-items: center;
-  width: 100%;
-}
+  .complaint-header {
+    display: flex;
+    justify-content: space-between; /* separa título y botón */
+    align-items: center;
+    width: 100%;
+  }
 
-/* Botón de menú ⋮ */
-.complaint-menu-button {
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  padding: 4px;
-  line-height: 1;
-  display:flex;
-  align-items:center;
-  justify-content: center;
-  color: rgba(14, 22, 33, 1); /* mismo color del texto */
-}
+  /* Botón de menú ⋮ */
+  .complaint-menu-button {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+    display:flex;
+    align-items:right;
+    justify-content: center;
+    color: rgba(14, 22, 33, 1); /* mismo color del texto */
+  }
 
-.complaint-menu-button:hover {
-  color: rgba(248, 204, 111, 1); /* resalta en hover con el amarillo del tema */
-}
+  .complaint-menu-button:hover {
+    color: rgba(248, 204, 111, 1); /* resalta en hover con el amarillo del tema */
+  }
+  .menu-wrapper {
+  position: relative;
+  display: inline-block;
+  }
+
+  .complaint-menu {
+    position: absolute;
+    top: 24px;
+    right: 0;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    z-index: 10;
+    min-width: 150px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .menu-option {
+    padding: 10px;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    font-size: 14px;
+  }
+
+  .menu-option:hover {
+    background: rgba(248, 204, 111, 0.2); /* amarillo suave */
+  }
 
 }
