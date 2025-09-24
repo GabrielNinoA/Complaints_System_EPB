@@ -329,6 +329,7 @@ body {
 
 .complaint-title {
   font-weight: bold;
+  margin: 0;
   margin-bottom: 5px;
   color: rgba(14, 22, 33, 1);
 }
