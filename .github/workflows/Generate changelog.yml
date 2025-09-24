@@ -10,6 +10,8 @@ on:
 concurrency:
   group: "pages"
   cancel-in-progress: true
+permissions:
+  contents: write
 jobs:
   generate-changelog:
     runs-on: ubuntu-latest
