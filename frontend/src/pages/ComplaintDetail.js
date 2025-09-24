@@ -36,8 +36,6 @@ const ComplaintDetail = () => {
   }, [id]);
 
   const handleComentarioAdded = () => {
-    // Actualizar contador de comentarios si es necesario
-    // Por ahora, simplemente mostrar un mensaje de éxito
     console.log('Comentario agregado exitosamente');
   };
 
@@ -53,7 +51,7 @@ const ComplaintDetail = () => {
   };
 
   const handleGoBack = () => {
-    navigate(-1); // Volver a la página anterior
+    navigate(-1); 
   };
 
   if (loading) {
@@ -79,7 +77,6 @@ const ComplaintDetail = () => {
   }
 
   return React.createElement('div', { className: 'page-container complaint-detail-page' },
-    // Header con información básica
     React.createElement('div', { className: 'complaint-detail-header' },
       React.createElement('button', {
         className: 'btn-back',
@@ -91,7 +88,6 @@ const ComplaintDetail = () => {
       )
     ),
 
-    // Información de la queja
     React.createElement('div', { className: 'complaint-info-card' },
       React.createElement('div', { className: 'complaint-info-header' },
         React.createElement('h2', { className: 'entity-name' },
@@ -115,7 +111,6 @@ const ComplaintDetail = () => {
       )
     ),
 
-    // Sección de comentarios
     React.createElement(ComentariosSection, {
       quejaId: parseInt(id),
       onComentarioAdded: handleComentarioAdded
