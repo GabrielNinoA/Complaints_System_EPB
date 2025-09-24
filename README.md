@@ -1,3 +1,4 @@
+```bash
 src/
 ├── config/          # Configuraciones (DB, etc.)
 ├── controllers/     # Lógica de negocio
@@ -5,6 +6,7 @@ src/
 ├── routes/          # Definición de rutas
 ├── services/        # Servicios (DB, etc.)
 └── validators/      # Validaciones de datos
+```
 # Sistema de Quejas Boyacá
 
 Sistema web para la gestión de quejas y reclamos de entidades públicas de Boyacá.
