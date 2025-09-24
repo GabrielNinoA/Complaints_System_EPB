@@ -330,7 +330,6 @@ body {
 .complaint-title {
   font-weight: bold;
   margin: 0;
-  margin-bottom: 5px;
   color: rgba(14, 22, 33, 1);
 }
 
@@ -686,6 +685,7 @@ body {
   display: flex;
   justify-content: space-between; /* separa título y botón */
   align-items: center;
+  width: 100%;
 }
 
 /* Botón de menú ⋮ */
@@ -696,6 +696,9 @@ body {
   cursor: pointer;
   padding: 4px;
   line-height: 1;
+  display:flex;
+  align-items:center;
+  justify-content: center;
   color: rgba(14, 22, 33, 1); /* mismo color del texto */
 }
 
