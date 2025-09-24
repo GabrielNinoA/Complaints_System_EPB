@@ -27,7 +27,7 @@ class EntidadesController {
             const startTime = Date.now();
 
             // Validar ID
-            const validation = QueryValidator.validateId(req.params.id);
+            const validation = QueryValidator.validateId(req.params.name);
             if (!validation.isValid) {
                 return res.status(400).json({
                     success: false,
