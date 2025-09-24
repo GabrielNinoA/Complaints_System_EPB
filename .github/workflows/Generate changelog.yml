@@ -26,3 +26,4 @@ jobs:
           COMMIT_MESSAGE: "docs(changelog): update release notes"
           TYPE: "feat:Feature,fix:Bug Fixes,docs:Documentation,refactor:Refactor,perf:Performance Improvements,feature:Feature, feat: ,fix: "
           DEFAULT_SCOPE: "general"
+          COMMITTER: ''
