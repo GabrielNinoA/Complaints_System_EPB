@@ -16,17 +16,17 @@ describe('Test: Escribir Queja', () => {
                 );
                 if (corpoboyaca) {
                     corpoboyacaId = corpoboyaca.id;
-                    console.log(`📍 Encontrada CORPOBOYACA con ID: ${corpoboyacaId}`);
+                    console.log(`Encontrada CORPOBOYACA con ID: ${corpoboyacaId}`);
                 } else {
-                    console.log('⚠️ CORPOBOYACA no encontrada, usando ID 1 por defecto');
+                    console.log('CORPOBOYACA no encontrada, usando ID 1 por defecto');
                     corpoboyacaId = 1;
                 }
             } else {
-                console.log('⚠️ No se pudieron obtener entidades, usando ID 1 por defecto');
+                console.log('No se pudieron obtener entidades, usando ID 1 por defecto');
                 corpoboyacaId = 1;
             }
         } catch (error) {
-            console.log('⚠️ Error obteniendo entidades, usando ID 1 por defecto');
+            console.log('Error obteniendo entidades, usando ID 1 por defecto');
             corpoboyacaId = 1;
         }
     });
@@ -64,8 +64,8 @@ describe('Test: Escribir Queja', () => {
                 .send(quejaCorpoboyaca)
                 .expect('Content-Type', /json/);
             expect(response.body).toHaveProperty('success');
-            console.log(`🏢 Test CORPOBOYACA - ID usado: ${corpoboyacaId}`);
-            console.log(`📊 Respuesta: ${response.body.success ? 'Éxito' : 'Error esperado'}`);
+            console.log(`Test CORPOBOYACA - ID usado: ${corpoboyacaId}`);
+            console.log(`Respuesta: ${response.body.success ? 'Éxito' : 'Error esperado'}`);
             if (response.body.success === true) {
                 expect(response.status).toBe(201);
                 expect(response.body.data).toHaveProperty('entidad_id', corpoboyacaId);
