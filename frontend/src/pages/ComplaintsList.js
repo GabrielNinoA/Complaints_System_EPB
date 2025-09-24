@@ -51,6 +51,22 @@ const ComplaintsList = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [totalComplaints, setTotalComplaints] = useState(0);
   const complaintsPerPage = 10; // El backend limita a 10
+  const [openMenuId, setOpenMenuId] = useState(null);
+
+  const toggleMenu = (id) => {
+    setOpenMenuId(openMenuId === id ? null : id);
+  };
+
+  const handleDelete = (id) => {
+    console.log("🗑 Borrar queja:", id);
+    setOpenMenuId(null);
+  };
+
+  const handleUpdate = (id) => {
+    console.log("✏️ Actualizar estado de queja:", id);
+    setOpenMenuId(null);
+  };
+
 
   useEffect(() => {
     const fetchComplaints = async () => {
@@ -138,13 +154,32 @@ const ComplaintsList = () => {
               key: complaint.id,
               className: 'complaint-item'
             },
-              React.createElement('div', { className: 'complaint-title' },
-                // Se calcula el número de queja basado en la página actual
-                `Queja #${String((currentPage - 1) * complaintsPerPage + index + 1).padStart(2, '0')}`
+              React.createElement('div', { className: 'complaint-header' },
+                React.createElement('div', { className: 'complaint-title' },
+                  // Se calcula el número de queja basado en la página actual
+                  `Queja #${String((currentPage - 1) * complaintsPerPage + index + 1).padStart(2, '0')}`
+                ),
+                React.createElement('div', { className: 'menu-wrapper' },
+                  React.createElement('button', {
+                    className: 'complaint-menu-button',
+                    onClick: () => toggleMenu(complaint.id)
+                  }, '⋮'),
+                  openMenuId === complaint.id &&
+                  React.createElement('div', { className: 'complaint-menu' },
+                    React.createElement('button', {
+                      onClick: () => handleDelete(complaint.id),
+                      className: 'menu-option'
+                    }, 'Borrar queja'),
+                    React.createElement('button', {
+                      onClick: () => handleUpdate(complaint.id),
+                      className: 'menu-option'
+                    }, 'Actualizar estado')
+                  )   
+                )   
               ),
               React.createElement('div', { className: 'complaint-description' },
-                complaint.descripcion
-              )
+                  complaint.descripcion
+                )  
             )
           )
     ),
