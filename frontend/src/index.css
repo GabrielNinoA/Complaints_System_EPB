@@ -654,33 +654,7 @@ body {
   cursor: not-allowed;
   opacity: 0.6;
 }
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .sidebar {
-    width: 100%;
-  }
-  
-  .content-shifted {
-    margin-left: 0;
-  }
-  
-  .header-title {
-    font-size: 18px;
-  }
-  
-  .page-title {
-    font-size: 24px;
-  }
-  
-  .main-content {
-    padding: 15px;
-  }
-  
-  .form-container {
-    padding: 20px;
-  }
-  /* Encabezado de cada queja: título a la izquierda y ⋮ a la derecha */
+/* Encabezado de cada queja: título a la izquierda y ⋮ a la derecha */
   .complaint-header {
     display: flex;
     justify-content: space-between; /* separa título y botón */
@@ -743,4 +717,31 @@ body {
     background: rgba(248, 204, 111, 0.2); /* amarillo suave */
   }
 
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100%;
+  }
+  
+  .content-shifted {
+    margin-left: 0;
+  }
+  
+  .header-title {
+    font-size: 18px;
+  }
+  
+  .page-title {
+    font-size: 24px;
+  }
+  
+  .main-content {
+    padding: 15px;
+  }
+  
+  .form-container {
+    padding: 20px;
+  }
+  
 }
