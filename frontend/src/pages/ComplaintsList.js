@@ -51,6 +51,22 @@ const ComplaintsList = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [totalComplaints, setTotalComplaints] = useState(0);
   const complaintsPerPage = 10; // El backend limita a 10
+  const [openMenuId, setOpenMenuId] = useState(null);
+
+  const toggleMenu = (id) => {
+    setOpenMenuId(openMenuId === id ? null : id);
+  };
+
+  const handleDelete = (id) => {
+    console.log("🗑 Borrar queja:", id);
+    setOpenMenuId(null);
+  };
+
+  const handleUpdate = (id) => {
+    console.log("✏️ Actualizar estado de queja:", id);
+    setOpenMenuId(null);
+  };
+
 
   useEffect(() => {
     const fetchComplaints = async () => {
