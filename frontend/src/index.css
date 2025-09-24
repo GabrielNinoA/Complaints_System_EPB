@@ -706,33 +706,39 @@ body {
     color: rgba(248, 204, 111, 1); /* resalta en hover con el amarillo del tema */
   }
   .menu-wrapper {
-  position: relative;
-  display: inline-block;
+    position: relative;
+    display: inline-block;
   }
 
   .complaint-menu {
     position: absolute;
-    top: 24px;
+    top: 28px; /* se separa un poco del botón ⋮ */
     right: 0;
     background: #fff;
     border: 1px solid #ddd;
     border-radius: 6px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    z-index: 10;
-    min-width: 150px;
+    z-index: 100;
+    min-width: 160px;
     display: flex;
     flex-direction: column;
+    padding: 4px 0;
   }
 
+
   .menu-option {
-    padding: 10px;
+    padding: 10px 14px;
     border: none;
     background: none;
     text-align: left;
     cursor: pointer;
     font-size: 14px;
+    color: #0e1621; 
+    width: 100%;
   }
-
+  .menu-option:focus {
+    outline: none;
+  }
   .menu-option:hover {
     background: rgba(248, 204, 111, 0.2); /* amarillo suave */
   }
