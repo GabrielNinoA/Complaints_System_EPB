@@ -57,8 +57,32 @@ const ComplaintsList = () => {
     setOpenMenuId(openMenuId === id ? null : id);
   };
 
-  const handleDelete = (id) => {
-    console.log("🗑 Borrar queja:", id);
+  const handleDelete = async (id) => {
+    const adminKey = prompt("Ingrese la clave de administrador para eliminar la queja:");
+    if (!adminKey) return;
+
+    try {
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/quejas/${id}`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ adminKey })
+        }
+      );
+      const data = await response.json();
+      if (data.success) {
+        alert("Queja eliminada exitosamente");
+        // Recargar la lista de quejas
+        setComplaints(complaints.filter(c => c.id !== id));
+      } else {
+        alert(data.message || "No se pudo eliminar la queja");
+      }
+    } catch (err) {
+      alert("Error de conexión");
+    }
     setOpenMenuId(null);
   };
 
