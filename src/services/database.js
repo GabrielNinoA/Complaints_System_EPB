@@ -218,9 +218,9 @@ class DatabaseService {
     }
 
     async deleteQueja(id) {
-        const query = 'DELETE FROM quejas WHERE id = ?';
-        const result = await this.execute(query, [id]);
-        return result.affectedRows > 0;
+    const query = 'UPDATE quejas SET deleted = 1 WHERE id = ?';
+    const result = await this.execute(query, [id]);
+    return result.affectedRows > 0;
     }
 
     // ==================== MÉTODOS PARA ESTADÍSTICAS ====================
