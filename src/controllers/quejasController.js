@@ -249,6 +249,15 @@ async getAllQuejas(req, res) {
                 });
             }
 
+            // Validar clave de administrador
+            const adminKey = req.body?.adminKey || req.query?.adminKey;
+            if (!adminKey || adminKey !== process.env.ADMIN_DELETE_KEY) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Clave de administrador incorrecta'
+                });
+            }
+
             // Verificar que la queja existe
             const existingQueja = await dbService.getQuejaById(validation.id);
             if (!existingQueja) {
@@ -258,9 +267,9 @@ async getAllQuejas(req, res) {
                 });
             }
 
-            // Eliminar la queja
+            // Eliminar la queja (marcar como deleted)
             const deleted = await dbService.deleteQueja(validation.id);
-            
+
             if (deleted) {
                 res.json({
                     success: true,
