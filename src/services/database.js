@@ -289,10 +289,10 @@ class DatabaseService {
     }
 
     async getQuejasByEntidadCount(entidadId) {
-        const entidadIdInt = parseInt(entidadId);
-        const query = 'SELECT COUNT(*) as count FROM quejas WHERE entidad_id = ?';
-        const result = await this.execute(query, [entidadIdInt]);
-        return result[0].count;
+    const entidadIdInt = parseInt(entidadId);
+    const query = 'SELECT COUNT(*) as count FROM quejas WHERE entidad_id = ? AND deleted = 0';
+    const result = await this.execute(query, [entidadIdInt]);
+    return result[0].count;
     }
 }
 
