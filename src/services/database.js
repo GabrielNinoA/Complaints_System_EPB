@@ -259,7 +259,7 @@ class DatabaseService {
                 e.nombre as entidad, 
                 COUNT(q.id) as count 
             FROM entidades e 
-            LEFT JOIN quejas q ON e.id = q.entidad_id 
+            LEFT JOIN quejas q ON e.id = q.entidad_id AND q.deleted = 0
             WHERE e.estado = true
             GROUP BY e.id, e.nombre 
             ORDER BY count DESC
