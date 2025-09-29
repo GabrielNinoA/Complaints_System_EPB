@@ -200,16 +200,16 @@ class DatabaseService {
                     q.updated_at
                 FROM quejas q 
                 INNER JOIN entidades e ON q.entidad_id = e.id 
-                WHERE q.entidad_id = ?
+                WHERE q.entidad_id = ? AND q.deleted = 0
                 ORDER BY q.created_at DESC
             `;
             
             const allResults = await this.execute(simpleQuery, [entidadIdInt]);
-            
+
             // Aplicar paginación manualmente
             const limitInt = parseInt(limit, 10) || 50;
             const offsetInt = parseInt(offset, 10) || 0;
-            
+
             return allResults.slice(offsetInt, offsetInt + limitInt);
         } catch (error) {
             console.error('❌ Error en getQuejasByEntidad:', error.message);
