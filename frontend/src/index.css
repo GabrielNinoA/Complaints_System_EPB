@@ -717,7 +717,32 @@ body {
     background: rgba(248, 204, 111, 0.2); /* amarillo suave */
   }
 
+.state-submenu {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-top: 5px;
+  border-top: 1px solid #eee;
+}
 
+.state-option {
+  color: #666;
+  font-size: 0.9em;
+}
+
+.state-option:hover {
+  background-color: #f0f0f0;
+}
+
+.complaint-item {
+  /* ... existing styles ... */
+  position: relative;
+}
+
+.complaint-menu {
+  /* ... existing styles ... */
+  min-width: 180px;
+}
 /* Responsive Design */
 @media (max-width: 768px) {
   .sidebar {

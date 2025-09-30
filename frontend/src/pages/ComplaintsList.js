@@ -52,6 +52,8 @@ const ComplaintsList = () => {
   const [totalComplaints, setTotalComplaints] = useState(0);
   const complaintsPerPage = 10; // El backend limita a 10
   const [openMenuId, setOpenMenuId] = useState(null);
+  // Agregar nuevo estado para el menú de estados
+  const [updateStateMenuId, setUpdateStateMenuId] = useState(null);
 
   const toggleMenu = (id) => {
     setOpenMenuId(openMenuId === id ? null : id);
@@ -86,9 +88,45 @@ const ComplaintsList = () => {
     setOpenMenuId(null);
   };
 
-  const handleUpdate = (id) => {
-    console.log("✏️ Actualizar estado de queja:", id);
+  const handleUpdate = async (id) => {
+    const adminKey = prompt("Ingrese la clave de administrador para actualizar el estado:");
+    if (!adminKey) return;
+
+    const newState = updateStateMenuId;
+    if (!newState) return;
+
+    try {
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/quejas/${id}/estado`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ 
+            state: newState,
+            adminKey 
+          })
+        }
+      );
+
+      const data = await response.json();
+      if (data.success) {
+        alert("Estado actualizado exitosamente");
+        // Actualizar la queja en el estado local
+        setComplaints(complaints.map(c => 
+          c.id === id ? {...c, state: newState} : c
+        ));
+      } else {
+        alert(data.message || "No se pudo actualizar el estado");
+      }
+    } catch (err) {
+      alert("Error de conexión");
+      console.error(err);
+    }
+    
     setOpenMenuId(null);
+    setUpdateStateMenuId(null);
   };
 
 
@@ -194,10 +232,29 @@ const ComplaintsList = () => {
                       onClick: () => handleDelete(complaint.id),
                       className: 'menu-option'
                     }, 'Borrar queja'),
-                    React.createElement('button', {
-                      onClick: () => handleUpdate(complaint.id),
-                      className: 'menu-option'
-                    }, 'Actualizar estado')
+                    React.createElement('div', { className: 'state-submenu' },
+                      React.createElement('button', {
+                        className: 'menu-option state-option',
+                        onClick: () => {
+                          setUpdateStateMenuId('open');
+                          handleUpdate(complaint.id);
+                        }
+                      }, 'Marcar como Abierta'),
+                      React.createElement('button', {
+                        className: 'menu-option state-option',
+                        onClick: () => {
+                          setUpdateStateMenuId('in process');
+                          handleUpdate(complaint.id);
+                        }
+                      }, 'Marcar en Proceso'),
+                      React.createElement('button', {
+                        className: 'menu-option state-option',
+                        onClick: () => {
+                          setUpdateStateMenuId('closed');
+                          handleUpdate(complaint.id);
+                        }
+                      }, 'Marcar como Cerrada')
+                    )
                   )   
                 )   
               ),
