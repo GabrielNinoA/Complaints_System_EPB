@@ -219,7 +219,7 @@ const ComplaintsList = () => {
               React.createElement('div', { className: 'complaint-header' },
                 React.createElement('div', { className: 'complaint-title' },
                   // Se calcula el número de queja basado en la página actual
-                  `Queja #${String((currentPage - 1) * complaintsPerPage + index + 1).padStart(2, '0')}`
+                  `Queja #${String((currentPage - 1) * complaintsPerPage + index + 1).padStart(2, '0')} estado: ${complaint.state}`
                 ),
                 React.createElement('div', { className: 'menu-wrapper' },
                   React.createElement('button', {
