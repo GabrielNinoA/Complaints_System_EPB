@@ -297,11 +297,9 @@ async getAllQuejas(req, res) {
     async updateQuejaStatus(req, res) {
         try {
             const startTime = Date.now();
-            const { id } = req.params;
-            const { estado } = req.body;
-
+            
             // Validar ID
-            const idValidation = QueryValidator.validateId(id);
+            const idValidation = QueryValidator.validateId(req.params.id);
             if (!idValidation.isValid) {
                 return res.status(400).json({
                     success: false,
@@ -309,10 +307,20 @@ async getAllQuejas(req, res) {
                     errors: idValidation.errors
                 });
             }
+            // Validar clave de administrador
+            const adminKey = req.body?.adminKey || req.query?.adminKey;
+            if (!adminKey || adminKey !== process.env.ADMIN_DELETE_KEY) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Clave de administrador incorrecta'
+                });
+            }
 
-            // Validar estado (valores permitidos: pendiente, en_proceso, resuelto, cerrado)
-            const estadosValidos = ['pendiente', 'en_proceso', 'resuelto', 'cerrado'];
-            if (!estado || !estadosValidos.includes(estado)) {
+            // Validar estado
+            const { state } = req.body;
+            const estadosValidos = ['open', 'in process', 'closed'];
+            
+            if (!state || !estadosValidos.includes(state.toLowerCase())) {
                 return res.status(400).json({
                     success: false,
                     message: 'Estado inválido',
@@ -321,7 +329,7 @@ async getAllQuejas(req, res) {
             }
 
             // Verificar que la queja existe
-            const quejaExistente = await dbService.getQuejaById(parseInt(id));
+            const quejaExistente = await dbService.getQuejaById(idValidation.id);
             if (!quejaExistente) {
                 return res.status(404).json({
                     success: false,
@@ -329,23 +337,27 @@ async getAllQuejas(req, res) {
                 });
             }
 
-            // Actualizar estado (por ahora solo devolvemos éxito, implementación completa pendiente)
+            // Actualizar estado
+            const resultado = await dbService.modificarEstadoQueja(idValidation.id, state);
+
             res.json({
                 success: true,
-                message: 'Estado de queja actualizado exitosamente',
+                message: resultado.message,
                 data: {
-                    id: parseInt(id),
-                    estadoAnterior: 'pendiente', // TODO: Obtener estado actual
-                    estadoNuevo: estado
+                    quejaId: resultado.quejaId,
+                    estadoAnterior: quejaExistente.state || 'open',
+                    estadoNuevo: resultado.newState
                 },
                 timestamp: new Date().toISOString(),
                 responseTime: Date.now() - startTime
             });
+
         } catch (error) {
-            console.error('❌ Error actualizando estado de queja:', error.message);
+            console.error('❌ Error modificando estado de queja:', error.message);
             res.status(500).json({
                 success: false,
-                message: 'Error actualizando estado de queja',
+                message: 'Error modificando estado de queja',
+                error: error.message,
                 timestamp: new Date().toISOString()
             });
         }
