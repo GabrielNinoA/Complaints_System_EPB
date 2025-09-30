@@ -217,12 +217,35 @@ class DatabaseService {
         }
     }
 
-    async deleteQueja(id) {
-    const query = 'UPDATE quejas SET deleted = 1 WHERE id = ?';
-    const result = await this.execute(query, [id]);
-    return result.affectedRows > 0;
-    }
+    async modificarEstadoQueja(id, state) {
+        // Validar que el estado sea uno de los permitidos
+        const estadosValidos = ['open', 'in process', 'closed'];
+        const stateNormalizado = state.toLowerCase();
+        
+        if (!estadosValidos.includes(stateNormalizado)) {
+            throw new Error('Estado inválido. Los estados válidos son: open, in process, closed');
+        }
 
+        const query = 'UPDATE quejas SET state = ?, updated_at = NOW() WHERE id = ?';
+        
+        try {
+            const result = await this.execute(query, [stateNormalizado, id]);
+            
+            if (result.affectedRows === 0) {
+                throw new Error('No se encontró la queja con el ID especificado');
+            }
+            
+            return {
+                success: true,
+                message: `Estado de la queja actualizado a ${stateNormalizado}`,
+                quejaId: id,
+                newState: stateNormalizado
+            };
+        } catch (error) {
+            console.error('❌ Error actualizando estado de la queja:', error.message);
+            throw error;
+        }
+    }
     // ==================== MÉTODOS PARA ESTADÍSTICAS ====================
 
     async getEstadisticasGenerales() {
