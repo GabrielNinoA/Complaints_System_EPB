@@ -1,13 +1,3 @@
--- Script para la creación de la base de datos del Sistema de Quejas
--- Basado en el modelado de datos proporcionado
-
--- Crear la base de datos si no existe
-CREATE DATABASE IF NOT EXISTS bn1wjilwxf7lfij13vn4 
-CHARACTER SET utf8mb4 
-COLLATE utf8mb4_unicode_ci;
-
--- Usar la base de datos
-USE bn1wjilwxf7lfij13vn4;
 
 -- Crear tabla de entidades
 CREATE TABLE IF NOT EXISTS entidades (

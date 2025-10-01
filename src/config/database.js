@@ -17,7 +17,7 @@ class DatabaseConfig {
             connectTimeout: 60000,
             
             // Pool de conexiones para mejor rendimiento
-            connectionLimit: 10,
+            connectionLimit: 1,
             queueLimit: 0,
             
             // Configuración SSL para Clever Cloud
