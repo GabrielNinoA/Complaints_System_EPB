@@ -216,6 +216,11 @@ class DatabaseService {
             throw error;
         }
     }
+    async deleteQueja(id) {
+        const query = 'UPDATE quejas SET deleted = 1 WHERE id = ?';
+        const result = await this.execute(query, [id]);
+        return result.affectedRows > 0;
+    }
 
     async modificarEstadoQueja(id, state) {
         // Validar que el estado sea uno de los permitidos
