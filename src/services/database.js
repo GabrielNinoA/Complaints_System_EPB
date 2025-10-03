@@ -15,10 +15,8 @@ class DatabaseService {
 
             const config = {
                 ...dbConfig.getConfig(),
-                // Configuración específica para UTF-8
                 charset: 'utf8mb4',
                 collation: 'utf8mb4_unicode_ci',
-                // Configuraciones adicionales para mejor manejo de conexiones
                 acquireTimeout: 60000,
                 timeout: 60000,
                 reconnect: true,
@@ -28,10 +26,8 @@ class DatabaseService {
 
             this.pool = mysql.createPool(config);
             
-            // Verificar conexión y configurar charset
             const connection = await this.pool.getConnection();
             
-            // Forzar UTF-8 en la sesión actual
             await connection.execute('SET NAMES utf8mb4');
             await connection.execute('SET CHARACTER SET utf8mb4');
             await connection.execute('SET character_set_connection = utf8mb4');
@@ -45,7 +41,6 @@ class DatabaseService {
             
             console.log('✅ Conexión a BD establecida con UTF-8 configurado');
             
-            // Verificar configuración de caracteres
             await this.checkCharsetConfig();
             
             return true;
@@ -65,7 +60,6 @@ class DatabaseService {
             const connection = await this.pool.getConnection();
             await connection.ping();
             
-            // Reforzar configuración UTF-8 en cada conexión
             await connection.execute('SET NAMES utf8mb4');
             
             connection.release();
@@ -79,7 +73,6 @@ class DatabaseService {
         try {
             await this.ensureConnection();
             
-            // Log para debugging (opcional, puedes comentarlo en producción)
             if (process.env.NODE_ENV === 'development') {
                 console.log('📝 Ejecutando query:', query.substring(0, 200) + '...');
             }
@@ -94,12 +87,10 @@ class DatabaseService {
                 sqlState: error.sqlState
             });
             
-            // Intentar reconectar si es un error de conexión
             if (error.code === 'PROTOCOL_CONNECTION_LOST' || error.code === 'ECONNREFUSED') {
                 console.log('🔄 Intentando reconectar...');
                 this.isConnected = false;
                 await this.initialize();
-                // Reintentar la consulta una vez
                 const [rows] = await this.pool.execute(query, params);
                 return rows;
             }
@@ -171,7 +162,6 @@ class DatabaseService {
             
             const dbName = process.env.DB_NAME || 'bn1wjilwxf7lfij13vn4';
             
-            // Verificar collation de la base de datos
             const dbConfig = await this.execute(`
                 SELECT 
                     DEFAULT_CHARACTER_SET_NAME, 
@@ -182,7 +172,6 @@ class DatabaseService {
             
             console.log('📊 Configuración de la base de datos:', dbConfig[0]);
 
-            // Verificar collation de las tablas
             const tablesConfig = await this.execute(`
                 SELECT 
                     TABLE_NAME,
@@ -197,7 +186,6 @@ class DatabaseService {
                 console.log(`   ${table.TABLE_NAME}: ${table.TABLE_COLLATION}`);
             });
 
-            // Verificar collation de las columnas
             const columnsConfig = await this.execute(`
                 SELECT 
                     TABLE_NAME,
