@@ -56,21 +56,20 @@ CREATE TABLE IF NOT EXISTS comentarios (
     INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Insertar las entidades base del sistema (sin caracteres especiales inicialmente)
-INSERT INTO entidades (nombre, estado) VALUES
-('CORPOBOYACA', true),
-('LOTERIA DE BOYACA', true),
+-- Limpiar datos existentes para evitar conflictos (OPCIONAL - descomenta si necesitas reset completo)
+-- DELETE FROM comentarios;
+-- DELETE FROM quejas;
+-- DELETE FROM entidades;
+
+-- Insertar las entidades base del sistema con nombres correctos desde el inicio
+INSERT IGNORE INTO entidades (nombre, estado) VALUES
+('CORPOBOYACÁ', true),
+('LOTERÍA DE BOYACÁ', true),
 ('EBSA', true),
 ('ITBOY', true),
 ('INDEPORTES', true),
-('ALCALDIA MUNICIPAL', true),
-('SECRETARIA DE SALUD', true)
-ON DUPLICATE KEY UPDATE nombre = VALUES(nombre);
-
--- Actualizar con caracteres especiales correctos usando UPDATE
-UPDATE entidades SET nombre = 'LOTERÍA DE BOYACÁ' WHERE nombre = 'LOTERIA DE BOYACA';
-UPDATE entidades SET nombre = 'ALCALDÍA MUNICIPAL' WHERE nombre = 'ALCALDIA MUNICIPAL';
-UPDATE entidades SET nombre = 'SECRETARÍA DE SALUD' WHERE nombre = 'SECRETARIA DE SALUD';
+('ALCALDÍA MUNICIPAL', true),
+('SECRETARÍA DE SALUD', true);
 
 -- Verificar que se insertaron correctamente
 SELECT 'Entidades creadas correctamente:' as mensaje;
