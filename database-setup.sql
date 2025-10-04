@@ -56,13 +56,13 @@ CREATE TABLE IF NOT EXISTS comentarios (
     INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Limpiar datos existentes para evitar conflictos (OPCIONAL - descomenta si necesitas reset completo)
--- DELETE FROM comentarios;
--- DELETE FROM quejas;
--- DELETE FROM entidades;
+-- LIMPIAR DATOS EXISTENTES PARA EVITAR DUPLICADOS
+DELETE FROM comentarios;
+DELETE FROM quejas;
+DELETE FROM entidades;
 
--- Insertar las entidades base del sistema con nombres correctos desde el inicio
-INSERT IGNORE INTO entidades (nombre, estado) VALUES
+-- Insertar las entidades base del sistema con nombres correctos
+INSERT INTO entidades (nombre, estado) VALUES
 ('CORPOBOYACÁ', true),
 ('LOTERÍA DE BOYACÁ', true),
 ('EBSA', true),
