@@ -1,5 +1,5 @@
 -- Script para la creación de la base de datos del Sistema de Quejas
--- Basado en el modelado de datos proporcionado
+-- Versión actualizada con soporte para comentarios
 
 -- Crear la base de datos si no existe
 CREATE DATABASE IF NOT EXISTS bn1wjilwxf7lfij13vn4 
@@ -38,6 +38,24 @@ CREATE TABLE IF NOT EXISTS quejas (
     INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Crear tabla de comentarios
+CREATE TABLE IF NOT EXISTS comentarios (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    queja_id INT NOT NULL,
+    texto TEXT NOT NULL,
+    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    -- Relación con quejas
+    FOREIGN KEY (queja_id) REFERENCES quejas(id) ON DELETE CASCADE,
+    
+    -- Índices para optimización
+    INDEX idx_queja (queja_id),
+    INDEX idx_fecha (fecha),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Insertar las entidades base del sistema (sin caracteres especiales inicialmente)
 INSERT INTO entidades (nombre, estado) VALUES
 ('CORPOBOYACA', true),
@@ -46,7 +64,8 @@ INSERT INTO entidades (nombre, estado) VALUES
 ('ITBOY', true),
 ('INDEPORTES', true),
 ('ALCALDIA MUNICIPAL', true),
-('SECRETARIA DE SALUD', true);
+('SECRETARIA DE SALUD', true)
+ON DUPLICATE KEY UPDATE nombre = VALUES(nombre);
 
 -- Actualizar con caracteres especiales correctos usando UPDATE
 UPDATE entidades SET nombre = 'LOTERÍA DE BOYACÁ' WHERE nombre = 'LOTERIA DE BOYACA';
@@ -63,3 +82,6 @@ DESCRIBE entidades;
 
 SELECT 'Estructura de la tabla quejas:' as mensaje;
 DESCRIBE quejas;
+
+SELECT 'Estructura de la tabla comentarios:' as mensaje;
+DESCRIBE comentarios;

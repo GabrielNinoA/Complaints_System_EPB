@@ -3,14 +3,12 @@ class QuejaValidator {
     static validate(data) {
         const errors = [];
 
-        // Validar entidad_id
         if (!data.entidad_id) {
             errors.push('Debe seleccionar una entidad');
         } else if (isNaN(data.entidad_id) || parseInt(data.entidad_id) <= 0) {
             errors.push('Debe seleccionar una entidad válida');
         }
 
-        // Validar descripción
         if (!data.descripcion) {
             errors.push('La descripción es requerida');
         } else {
@@ -24,7 +22,6 @@ class QuejaValidator {
                 errors.push('La descripción no puede exceder 5000 caracteres');
             }
 
-            // Validar que no sea solo espacios o caracteres especiales
             if (!/[a-zA-ZáéíóúÁÉÍÓÚñÑ]/.test(descripcion)) {
                 errors.push('La descripción debe contener texto válido');
             }
@@ -44,16 +41,71 @@ class QuejaValidator {
     }
 }
 
+// Validador para comentarios
+class ComentarioValidator {
+    static validate(data) {
+        const errors = [];
+
+        if (!data.queja_id) {
+            errors.push('El ID de la queja es requerido');
+        } else if (isNaN(data.queja_id) || parseInt(data.queja_id) <= 0) {
+            errors.push('El ID de la queja debe ser válido');
+        }
+
+        if (!data.texto) {
+            errors.push('El texto del comentario es requerido');
+        } else {
+            const texto = data.texto.trim();
+            
+            if (texto.length < 5) {
+                errors.push('El comentario debe tener al menos 5 caracteres');
+            }
+            
+            if (texto.length > 1000) {
+                errors.push('El comentario no puede exceder 1000 caracteres');
+            }
+
+            if (!/[a-zA-ZáéíóúÁÉÍÓÚñÑ]/.test(texto)) {
+                errors.push('El comentario debe contener texto válido');
+            }
+        }
+
+        if (data.fecha) {
+            const fecha = new Date(data.fecha);
+            if (isNaN(fecha.getTime())) {
+                errors.push('La fecha proporcionada no es válida');
+            }
+        }
+
+        return {
+            isValid: errors.length === 0,
+            errors
+        };
+    }
+
+    static sanitize(data) {
+        const sanitized = {
+            queja_id: parseInt(data.queja_id),
+            texto: data.texto ? data.texto.trim() : ''
+        };
+
+        if (data.fecha) {
+            sanitized.fecha = new Date(data.fecha);
+        }
+
+        return sanitized;
+    }
+}
+
 // Validador para parámetros de consulta
 class QueryValidator {
     static validatePagination(query) {
         const errors = [];
         const result = {
-            limit: 50, // valor por defecto
-            offset: 0  // valor por defecto
+            limit: 50,
+            offset: 0
         };
 
-        // Validar limit
         if (query.limit !== undefined) {
             const limit = parseInt(query.limit);
             if (isNaN(limit) || limit <= 0) {
@@ -65,7 +117,6 @@ class QueryValidator {
             }
         }
 
-        // Validar offset
         if (query.offset !== undefined) {
             const offset = parseInt(query.offset);
             if (isNaN(offset) || offset < 0) {
@@ -75,7 +126,6 @@ class QueryValidator {
             }
         }
 
-        // Calcular page si se proporciona
         if (query.page !== undefined) {
             const page = parseInt(query.page);
             if (isNaN(page) || page <= 0) {
@@ -132,7 +182,6 @@ class FilterValidator {
             }
         }
 
-        // Validar que fecha inicio sea anterior a fecha fin
         if (result.fechaInicio && result.fechaFin && result.fechaInicio > result.fechaFin) {
             errors.push('La fecha de inicio debe ser anterior a la fecha de fin');
         }
@@ -147,6 +196,7 @@ class FilterValidator {
 
 module.exports = {
     QuejaValidator,
+    ComentarioValidator,
     QueryValidator,
     FilterValidator
 };
