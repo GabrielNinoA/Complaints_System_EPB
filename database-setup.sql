@@ -56,13 +56,23 @@ CREATE TABLE IF NOT EXISTS comentarios (
     INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- LIMPIAR DATOS EXISTENTES PARA EVITAR DUPLICADOS
-DELETE FROM comentarios;
-DELETE FROM quejas;
-DELETE FROM entidades;
+-- PASO 1: Identificar y corregir los nombres duplicados
+-- Actualizar los nombres con caracteres especiales para que sean consistentes
 
--- Insertar las entidades base del sistema con nombres correctos
-INSERT INTO entidades (nombre, estado) VALUES
+UPDATE entidades SET nombre = 'CORPOBOYACÁ' WHERE nombre = 'CORPOBOYACA' OR nombre = 'CORPOBOYAC??';
+UPDATE entidades SET nombre = 'LOTERÍA DE BOYACÁ' WHERE nombre = 'LOTERIA DE BOYACA' OR nombre LIKE 'LOTER%';
+UPDATE entidades SET nombre = 'ALCALDÍA MUNICIPAL' WHERE nombre = 'ALCALDIA MUNICIPAL' OR nombre = 'ALCALD??A MUNICIPAL';
+UPDATE entidades SET nombre = 'SECRETARÍA DE SALUD' WHERE nombre = 'SECRETARIA DE SALUD';
+
+-- PASO 2: Eliminar duplicados manteniendo el registro más reciente
+DELETE e1 FROM entidades e1
+INNER JOIN entidades e2 
+WHERE 
+    e1.id > e2.id 
+    AND e1.nombre = e2.nombre;
+
+-- PASO 3: Insertar solo las entidades que no existen
+INSERT IGNORE INTO entidades (nombre, estado) VALUES
 ('CORPOBOYACÁ', true),
 ('LOTERÍA DE BOYACÁ', true),
 ('EBSA', true),
@@ -72,7 +82,7 @@ INSERT INTO entidades (nombre, estado) VALUES
 ('SECRETARÍA DE SALUD', true);
 
 -- Verificar que se insertaron correctamente
-SELECT 'Entidades creadas correctamente:' as mensaje;
+SELECT 'Entidades después de la corrección:' as mensaje;
 SELECT id, nombre, estado FROM entidades ORDER BY id;
 
 -- Mostrar estructura de las tablas
