@@ -233,12 +233,12 @@ class DatabaseService {
                 id,
                 queja_id,
                 texto,
-                fecha,
+                created_at as fecha,
                 created_at,
                 updated_at
             FROM comentarios 
             WHERE queja_id = ?
-            ORDER BY fecha ASC
+            ORDER BY created_at ASC
         `;
         return await this.execute(query, [quejaId]);
     }
@@ -249,7 +249,7 @@ class DatabaseService {
                 id,
                 queja_id,
                 texto,
-                fecha,
+                created_at as fecha,
                 created_at,
                 updated_at
             FROM comentarios 
@@ -261,14 +261,12 @@ class DatabaseService {
 
     async createComentario(comentarioData) {
         const query = `
-            INSERT INTO comentarios (queja_id, texto, fecha) 
-            VALUES (?, ?, ?)
+            INSERT INTO comentarios (queja_id, texto) 
+            VALUES (?, ?)
         `;
-        const fecha = comentarioData.fecha || new Date();
         const result = await this.execute(query, [
             comentarioData.queja_id,
-            comentarioData.texto,
-            fecha
+            comentarioData.texto
         ]);
         
         const newComentario = await this.getComentarioById(result.insertId);
