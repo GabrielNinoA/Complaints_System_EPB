@@ -11,8 +11,8 @@ const estadisticasController = require('../controllers/estadisticasController');
 const { globalLimiter, complaintsLimiter, consultLimiter, adminLimiter } = require('../middleware/rateLimiter');
 const { asyncHandler } = require('../middleware/errorHandler');
 
-// Aplicar rate limiting global
-router.use(globalLimiter);
+// ⚠️ NO aplicar globalLimiter aquí - se aplicará selectivamente
+// router.use(globalLimiter); // COMENTADO PARA EVITAR BLOQUEOS
 
 // ==================== INFORMACIÓN DE LA API ====================
 
@@ -72,11 +72,20 @@ router.get('/quejas/entidad/:entidadId',
     asyncHandler(quejasController.getQuejasByEntidad)
 );
 
+// 🔥 RUTAS ADMINISTRATIVAS - SIN RATE LIMITING RESTRICTIVO
 router.delete('/quejas/:id', 
+    (req, res, next) => {
+        console.log(`🗑️  [DELETE QUEJA] ID: ${req.params.id} - IP: ${req.ip}`);
+        next();
+    },
     asyncHandler(quejasController.deleteQueja)
 );
 
 router.patch('/quejas/:id/estado', 
+    (req, res, next) => {
+        console.log(`📝 [PATCH QUEJA] ID: ${req.params.id} - Estado: ${req.body.estado}`);
+        next();
+    },
     asyncHandler(quejasController.updateQuejaStatus)
 );
 
@@ -101,12 +110,20 @@ router.get('/comentarios/:id',
 );
 
 // Actualizar un comentario
-router.put('/comentarios/:id', 
+router.put('/comentarios/:id',
+    (req, res, next) => {
+        console.log(`✏️  [PUT COMENTARIO] ID: ${req.params.id}`);
+        next();
+    },
     asyncHandler(comentariosController.updateComentario)
 );
 
 // Eliminar un comentario
-router.delete('/comentarios/:id', 
+router.delete('/comentarios/:id',
+    (req, res, next) => {
+        console.log(`🗑️  [DELETE COMENTARIO] ID: ${req.params.id}`);
+        next();
+    },
     asyncHandler(comentariosController.deleteComentario)
 );
 
