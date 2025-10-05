@@ -1,232 +1,367 @@
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import CommentsModal from '../components/CommentsModal';
+const dbService = require('../services/database');
+const { QuejaValidator, QueryValidator } = require('../validators');
 
-const Pagination = ({ currentPage, totalPages, onPageChange }) => {
-  const pageNumbers = [];
-  for (let i = 1; i <= totalPages; i++) {
-    pageNumbers.push(i);
-  }
-
-  if (totalPages <= 1) {
-    return null;
-  }
-
-  return React.createElement('div', { className: 'pagination-container' },
-    React.createElement('button', {
-      onClick: () => onPageChange(currentPage - 1),
-      disabled: currentPage === 1,
-      className: 'pagination-button'
-    }, 'Anterior'),
-
-    ...pageNumbers.map(number =>
-      React.createElement('button', {
-        key: number,
-        onClick: () => onPageChange(number),
-        className: `pagination-button ${currentPage === number ? 'active' : ''}`
-      }, number)
-    ),
-
-    React.createElement('button', {
-      onClick: () => onPageChange(currentPage + 1),
-      disabled: currentPage === totalPages,
-      className: 'pagination-button'
-    }, 'Siguiente')
-  );
-};
-
-const ComplaintsList = () => {
-  const { entityId } = useParams();
-  const [complaints, setComplaints] = useState([]);
-  const [entityName, setEntityName] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(0);
-  const [totalComplaints, setTotalComplaints] = useState(0);
-  const complaintsPerPage = 10;
-  const [openMenuId, setOpenMenuId] = useState(null);
-  const [showCommentsModal, setShowCommentsModal] = useState(false);
-  const [selectedQueja, setSelectedQueja] = useState(null);
-
-  const toggleMenu = (id) => {
-    setOpenMenuId(openMenuId === id ? null : id);
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm('¿Está seguro de eliminar esta queja y todos sus comentarios?')) {
-      return;
-    }
-
+class QuejasController {
+    // Obtener todas las quejas con paginación
+async getAllQuejas(req, res) {
     try {
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/quejas/${id}`,
-        {
-          method: 'DELETE'
+        const startTime = Date.now();
+        
+        // Validar parámetros de paginación
+        const validation = QueryValidator.validatePagination(req.query);
+        if (!validation.isValid) {
+            return res.status(400).json({
+                success: false,
+                message: 'Parámetros de consulta inválidos',
+                errors: validation.errors
+            });
         }
-      );
 
-      const data = await response.json();
-      
-      if (data.success) {
-        alert('Queja eliminada exitosamente');
-        fetchComplaints();
-      } else {
-        alert('Error al eliminar la queja');
-      }
-    } catch (error) {
-      console.error('Error eliminando queja:', error);
-      alert('Error de conexión');
-    } finally {
-      setOpenMenuId(null);
-    }
-  };
+        let { limit, offset } = validation.params;
 
-  const handleUpdate = async (id) => {
-    console.log("✏️ Actualizar estado de queja:", id);
-    setOpenMenuId(null);
-  };
+        // 🚨 Forzar máximo 10 por página
+        if (!limit || limit > 10) {
+            limit = 10;
+        }
 
-  const handleVerComentarios = (queja) => {
-    setSelectedQueja(queja);
-    setShowCommentsModal(true);
-    setOpenMenuId(null);
-  };
+        // Obtener quejas y conteo total
+        const [quejas, totalCount] = await Promise.all([
+            dbService.getAllQuejas(limit, offset),
+            dbService.getQuejasCount()
+        ]);
 
-  const fetchComplaints = async () => {
-    try {
-      setLoading(true);
-      
-      const entityResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/entidades`);
-      const entityData = await entityResponse.json();
-      
-      if (entityData.success) {
-        const entity = entityData.data.find(e => e.id === parseInt(entityId));
-        setEntityName(entity ? entity.nombre : 'Entidad desconocida');
-      }
+        // Calcular metadatos de paginación
+        const totalPages = Math.ceil(totalCount / limit);
+        const currentPage = Math.floor(offset / limit) + 1;
 
-      const complaintsResponse = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/quejas/entidad/${entityId}?limit=${complaintsPerPage}&offset=${(currentPage - 1) * complaintsPerPage}`
-      );
-      const complaintsData = await complaintsResponse.json();
-      
-      if (complaintsData.success) {
-        setComplaints(complaintsData.data);
-        const { total, totalPages, currentPage } = complaintsData.pagination;
-        setTotalComplaints(total);
-        setTotalPages(totalPages);
-        setCurrentPage(currentPage);
-      } else {
-        setError('No se pudieron cargar las quejas');
-      }
-    } catch (err) {
-      console.error('Error fetching data:', err);
-      setError('Error de conexión');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (entityId) {
-      fetchComplaints();
-    }
-  }, [entityId, currentPage]);
-  
-  const handlePageChange = (pageNumber) => {
-    setCurrentPage(pageNumber);
-  };
-
-  if (loading) {
-    return React.createElement('div', { className: 'page-container' },
-      React.createElement('div', { className: 'loading-message' },
-        'Cargando quejas...'
-      )
-    );
-  }
-
-  if (error) {
-    return React.createElement('div', { className: 'page-container' },
-      React.createElement('div', { className: 'error-message' },
-        error
-      )
-    );
-  }
-
-  return React.createElement('div', { className: 'page-container' },
-    React.createElement('h1', { className: 'page-title' },
-      `Quejas de ${entityName}`
-    ),
-    
-    React.createElement('div', { className: 'complaints-count' },
-      `Total de quejas: ${totalComplaints}`
-    ),
-    
-    React.createElement('div', { className: 'complaints-list' },
-      complaints.length === 0 
-        ? React.createElement('div', { className: 'no-complaints' },
-            'No hay quejas registradas para esta entidad.'
-          )
-        : complaints.map((complaint, index) =>
-            React.createElement('div', {
-              key: complaint.id,
-              className: 'complaint-item'
+        res.json({
+            success: true,
+            data: quejas,
+            pagination: {
+                total: totalCount,
+                count: quejas.length,
+                limit,
+                offset,
+                currentPage,
+                totalPages,
+                hasNext: offset + limit < totalCount,
+                hasPrev: offset > 0
             },
-              React.createElement('div', { className: 'complaint-header' },
-                React.createElement('div', { className: 'complaint-title' },
-                  `Queja #${String((currentPage - 1) * complaintsPerPage + index + 1).padStart(2, '0')}`
-                ),
-                React.createElement('div', { className: 'menu-wrapper' },
-                  React.createElement('button', {
-                    className: 'complaint-menu-button',
-                    onClick: () => toggleMenu(complaint.id)
-                  }, '⋮'),
-                  openMenuId === complaint.id &&
-                  React.createElement('div', { className: 'complaint-menu' },
-                    React.createElement('button', {
-                      onClick: () => handleVerComentarios(complaint),
-                      className: 'menu-option'
-                    }, `💬 Ver comentarios (${complaint.total_comentarios || 0})`),
-                    React.createElement('button', {
-                      onClick: () => handleUpdate(complaint.id),
-                      className: 'menu-option'
-                    }, 'Actualizar estado'),
-                    React.createElement('button', {
-                      onClick: () => handleDelete(complaint.id),
-                      className: 'menu-option menu-option-danger'
-                    }, 'Borrar queja')
-                  )   
-                )   
-              ),
-              React.createElement('div', { className: 'complaint-description' },
-                complaint.descripcion
-              ),
-              complaint.total_comentarios > 0 &&
-              React.createElement('div', { className: 'complaint-footer' },
-                React.createElement('span', { className: 'comentarios-badge' },
-                  `💬 ${complaint.total_comentarios} ${complaint.total_comentarios === 1 ? 'comentario' : 'comentarios'}`
-                )
-              )
-            )
-          )
-    ),
-    
-    React.createElement(Pagination, {
-      currentPage: currentPage,
-      totalPages: totalPages,
-      onPageChange: handlePageChange
-    }),
+            timestamp: new Date().toISOString(),
+            responseTime: Date.now() - startTime
+        });
+    } catch (error) {
+        console.error('❌ Error obteniendo quejas:', error.message);
+        res.status(500).json({
+            success: false,
+            message: 'Error obteniendo quejas',
+            timestamp: new Date().toISOString()
+        });
+    }
+}
 
-    showCommentsModal && selectedQueja && React.createElement(CommentsModal, {
-      quejaId: selectedQueja.id,
-      quejaTitle: `Queja: ${selectedQueja.entidad_nombre}`,
-      onClose: () => {
-        setShowCommentsModal(false);
-        setSelectedQueja(null);
-        fetchComplaints();
-      }
-    })
-  );
-};
 
-export default ComplaintsList;
+    // Obtener queja por ID
+    async getQuejaById(req, res) {
+        try {
+            const startTime = Date.now();
+            
+            // Validar ID
+            const validation = QueryValidator.validateId(req.params.id);
+            if (!validation.isValid) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'ID inválido',
+                    errors: validation.errors
+                });
+            }
+
+            const queja = await dbService.getQuejaById(validation.id);
+            
+            if (!queja) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Queja no encontrada'
+                });
+            }
+
+            res.json({
+                success: true,
+                data: queja,
+                timestamp: new Date().toISOString(),
+                responseTime: Date.now() - startTime
+            });
+        } catch (error) {
+            console.error('❌ Error obteniendo queja:', error.message);
+            res.status(500).json({
+                success: false,
+                message: 'Error obteniendo queja',
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
+    // Crear nueva queja
+    async createQueja(req, res) {
+        try {
+            const startTime = Date.now();
+            
+            // Validar datos de entrada
+            const validation = QuejaValidator.validate(req.body);
+            if (!validation.isValid) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Datos inválidos',
+                    errors: validation.errors
+                });
+            }
+
+            // Sanitizar datos
+            const quejaData = QuejaValidator.sanitize(req.body);
+            
+            // Verificar que la entidad existe
+            const entidad = await dbService.getEntidadById(quejaData.entidad_id);
+            if (!entidad) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Entidad no válida'
+                });
+            }
+
+            // Crear la queja
+            const nuevaQueja = await dbService.createQueja(quejaData);
+
+            res.status(201).json({
+                success: true,
+                message: 'Queja creada exitosamente',
+                data: {
+                    id: nuevaQueja.insertId,
+                    entidad_id: quejaData.entidad_id,
+                    entidad_nombre: entidad.nombre,
+                    descripcion: quejaData.descripcion,
+                    created_at: nuevaQueja.created_at
+                },
+                timestamp: new Date().toISOString(),
+                responseTime: Date.now() - startTime
+            });
+        } catch (error) {
+            console.error('❌ Error creando queja:', error.message);
+            res.status(500).json({
+                success: false,
+                message: 'Error creando queja',
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
+    // Obtener quejas por entidad
+    async getQuejasByEntidad(req, res) {
+        try {
+            const startTime = Date.now();
+            
+            // Validar ID de entidad
+            const idValidation = QueryValidator.validateId(req.params.entidadId);
+            if (!idValidation.isValid) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'ID de entidad inválido',
+                    errors: idValidation.errors
+                });
+            }
+
+            // Validar parámetros de paginación
+            const paginationValidation = QueryValidator.validatePagination(req.query);
+            if (!paginationValidation.isValid) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Parámetros de consulta inválidos',
+                    errors: paginationValidation.errors
+                });
+            }
+
+            const entidadId = idValidation.id;
+            let { limit, offset } = paginationValidation.params;
+            if (!limit || limit > 10) {
+                limit = 10;
+            }
+
+            // Verificar que la entidad existe
+            const entidad = await dbService.getEntidadById(entidadId);
+            if (!entidad) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Entidad no encontrada'
+                });
+            }
+
+            // Obtener quejas y conteo
+            const [quejas, totalCount] = await Promise.all([
+                dbService.getQuejasByEntidad(entidadId, limit, offset),
+                dbService.getQuejasByEntidadCount(entidadId)
+            ]);
+
+            // Calcular metadatos de paginación
+            const totalPages = Math.ceil(totalCount / limit);
+            const currentPage = Math.floor(offset / limit) + 1;
+
+            res.json({
+                success: true,
+                data: quejas,
+                entidad: {
+                    id: entidad.id,
+                    nombre: entidad.nombre
+                },
+                pagination: {
+                    total: totalCount,
+                    count: quejas.length,
+                    limit,
+                    offset,
+                    currentPage,
+                    totalPages,
+                    hasNext: offset + limit < totalCount,
+                    hasPrev: offset > 0
+                },
+                timestamp: new Date().toISOString(),
+                responseTime: Date.now() - startTime
+            });
+        } catch (error) {
+            console.error('❌ Error obteniendo quejas por entidad:', error.message);
+            res.status(500).json({
+                success: false,
+                message: 'Error obteniendo quejas por entidad',
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
+    // Eliminar queja (para administración)
+    async deleteQueja(req, res) {
+        try {
+            const startTime = Date.now();
+            
+            // Validar ID
+            const validation = QueryValidator.validateId(req.params.id);
+            if (!validation.isValid) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'ID inválido',
+                    errors: validation.errors
+                });
+            }
+
+            // Validar clave de administrador
+            const adminKey = req.body?.adminKey || req.query?.adminKey;
+            if (!adminKey || adminKey !== process.env.ADMIN_DELETE_KEY) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Clave de administrador incorrecta'
+                });
+            }
+
+            // Verificar que la queja existe
+            const existingQueja = await dbService.getQuejaById(validation.id);
+            if (!existingQueja) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Queja no encontrada'
+                });
+            }
+
+            // Eliminar la queja (marcar como deleted)
+            const deleted = await dbService.deleteQueja(validation.id);
+
+            if (deleted) {
+                res.json({
+                    success: true,
+                    message: 'Queja eliminada exitosamente',
+                    timestamp: new Date().toISOString(),
+                    responseTime: Date.now() - startTime
+                });
+            } else {
+                res.status(400).json({
+                    success: false,
+                    message: 'No se pudo eliminar la queja'
+                });
+            }
+        } catch (error) {
+            console.error('❌ Error eliminando queja:', error.message);
+            res.status(500).json({
+                success: false,
+                message: 'Error eliminando queja',
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
+    // Actualizar estado de una queja (funcionalidad administrativa)
+    async updateQuejaStatus(req, res) {
+        try {
+            const startTime = Date.now();
+            
+            // Validar ID
+            const idValidation = QueryValidator.validateId(req.params.id);
+            if (!idValidation.isValid) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'ID de queja inválido',
+                    errors: idValidation.errors
+                });
+            }
+            // Validar clave de administrador
+            const adminKey = req.body?.adminKey || req.query?.adminKey;
+            if (!adminKey || adminKey !== process.env.ADMIN_DELETE_KEY) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Clave de administrador incorrecta'
+                });
+            }
+
+            // Validar estado
+            const { state } = req.body;
+            const estadosValidos = ['open', 'in process', 'closed'];
+            
+            if (!state || !estadosValidos.includes(state.toLowerCase())) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Estado inválido',
+                    validStates: estadosValidos
+                });
+            }
+
+            // Verificar que la queja existe
+            const quejaExistente = await dbService.getQuejaById(idValidation.id);
+            if (!quejaExistente) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Queja no encontrada'
+                });
+            }
+
+            // Actualizar estado
+            const resultado = await dbService.modificarEstadoQueja(idValidation.id, state);
+
+            res.json({
+                success: true,
+                message: resultado.message,
+                data: {
+                    quejaId: resultado.quejaId,
+                    estadoAnterior: quejaExistente.state || 'open',
+                    estadoNuevo: resultado.newState
+                },
+                timestamp: new Date().toISOString(),
+                responseTime: Date.now() - startTime
+            });
+
+        } catch (error) {
+            console.error('❌ Error modificando estado de queja:', error.message);
+            res.status(500).json({
+                success: false,
+                message: 'Error modificando estado de queja',
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+}
+
+module.exports = new QuejasController();
