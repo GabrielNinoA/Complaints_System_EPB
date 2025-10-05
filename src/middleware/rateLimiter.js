@@ -1,57 +1,56 @@
 const rateLimit = require('express-rate-limit');
 
-// Rate limiting global para toda la API
+// Rate limiter global - más permisivo
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutos
-    max: process.env.NODE_ENV === 'production' ? 500 : 1000, // Más restrictivo en producción
+    max: 1000, // Límite muy alto para peticiones normales
     message: {
         success: false,
-        message: 'Demasiadas solicitudes desde esta IP. Intente de nuevo más tarde.',
-        retryAfter: '15 minutes'
+        message: 'Demasiadas peticiones desde esta IP, por favor intenta más tarde.'
     },
     standardHeaders: true,
     legacyHeaders: false,
-    handler: (req, res) => {
-        console.log(`🚫 Rate limit alcanzado para IP: ${req.ip} - ${req.originalUrl}`);
-        res.status(429).json({
-            success: false,
-            message: 'Demasiadas solicitudes desde esta IP. Intente de nuevo más tarde.',
-            retryAfter: '15 minutes',
-            timestamp: new Date().toISOString()
-        });
+    // Excluir rutas de administración del rate limiting
+    skip: (req) => {
+        const adminRoutes = ['/api/quejas/', '/api/comentarios/'];
+        return adminRoutes.some(route => 
+            req.path.includes(route) && 
+            ['DELETE', 'PUT', 'PATCH'].includes(req.method)
+        );
     }
 });
 
-// Rate limiting específico para crear quejas (más restrictivo)
-const complaintsLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutos
-    max: process.env.NODE_ENV === 'production' ? 10 : 50, // Muy restrictivo en producción
-    message: {
-        success: false,
-        message: 'Límite de quejas alcanzado. Puede enviar máximo 10 quejas cada 15 minutos.',
-        retryAfter: '15 minutes'
-    },
-    standardHeaders: true,
-    legacyHeaders: false,
-    handler: (req, res) => {
-        console.log(`🚫 Límite de quejas alcanzado para IP: ${req.ip}`);
-        res.status(429).json({
-            success: false,
-            message: 'Límite de quejas alcanzado. Puede enviar máximo 10 quejas cada 15 minutos.',
-            retryAfter: '15 minutes',
-            timestamp: new Date().toISOString()
-        });
-    }
-});
-
-// Rate limiting para consultas (más permisivo)
+// Rate limiter para consultas - muy permisivo
 const consultLimiter = rateLimit({
     windowMs: 5 * 60 * 1000, // 5 minutos
-    max: process.env.NODE_ENV === 'production' ? 100 : 200,
+    max: 500, // 500 peticiones por ventana
     message: {
         success: false,
-        message: 'Demasiadas consultas. Intente de nuevo en unos minutos.',
-        retryAfter: '5 minutes'
+        message: 'Demasiadas consultas, por favor espera un momento.'
+    },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+// Rate limiter para creación de quejas
+const complaintsLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutos
+    max: 50, // 50 quejas por ventana
+    message: {
+        success: false,
+        message: 'Has alcanzado el límite de quejas por hora. Por favor intenta más tarde.'
+    },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+// Rate limiter para operaciones administrativas - SIN LÍMITE
+const adminLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000, // 1 minuto
+    max: 100, // 100 operaciones por minuto (muy permisivo)
+    message: {
+        success: false,
+        message: 'Demasiadas operaciones administrativas.'
     },
     standardHeaders: true,
     legacyHeaders: false
@@ -59,6 +58,7 @@ const consultLimiter = rateLimit({
 
 module.exports = {
     globalLimiter,
+    consultLimiter,
     complaintsLimiter,
-    consultLimiter
+    adminLimiter
 };

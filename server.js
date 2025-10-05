@@ -8,10 +8,53 @@ const { requestLogger } = require('./src/middleware/logger');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ==================== MIDDLEWARE DE CORS MANUAL ====================
+
+// CORS manual sin usar el paquete cors
+app.use((req, res, next) => {
+    // Permitir todos los orígenes en desarrollo, específicos en producción
+    const allowedOrigins = process.env.NODE_ENV === 'production' 
+        ? [
+            'https://complaints-system-epb-feature.onrender.com',
+            'https://complaints-system-epb.onrender.com',
+            process.env.FRONTEND_URL
+          ].filter(Boolean)
+        : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+
+    const origin = req.headers.origin;
+    
+    // Permitir el origen si está en la lista o si estamos en desarrollo
+    if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+        res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    }
+
+    // Métodos permitidos - IMPORTANTE: incluir DELETE, PUT, PATCH
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    
+    // Headers permitidos
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    
+    // Permitir credenciales
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    
+    // Tiempo de caché para preflight requests (24 horas)
+    res.setHeader('Access-Control-Max-Age', '86400');
+
+    // Manejar preflight requests (OPTIONS)
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
+    next();
+});
+
 // ==================== MIDDLEWARE DE SEGURIDAD ====================
 
 // Compresión de respuestas
 app.use(compression());
+
+// Trust proxy para obtener IP real (necesario para Render)
+app.set('trust proxy', 1);
 
 // ==================== MIDDLEWARE DE PARSEO ====================
 
@@ -31,9 +74,6 @@ app.use(express.urlencoded({
 
 // Logger de requests
 app.use(requestLogger);
-
-// Trust proxy para obtener IP real (necesario para Render)
-app.set('trust proxy', 1);
 
 // ==================== ARCHIVOS ESTÁTICOS ====================
 
@@ -72,22 +112,10 @@ app.get('/health', (req, res) => {
 // Rutas de la API - IMPORTANTE: ANTES del catchall del frontend
 app.use('/api', apiRoutes);
 
-// Frontend routing - DESPUÉS de las rutas API
-if (process.env.NODE_ENV === 'production') {
-    const path = require('path');
-    
-    // Manejar rutas del frontend (SPA routing) - TODAS las rutas que no sean API
-    app.get('*', (req, res) => {
-        // Evitar interceptar rutas de la API y health
-        if (!req.path.startsWith('/api') && !req.path.startsWith('/health')) {
-            res.sendFile(path.join(__dirname, 'frontend/build', 'index.html'));
-        }
-    });
-}
-
 // Ruta raíz
 app.get('/', (req, res) => {
     if (process.env.NODE_ENV === 'production') {
+        const path = require('path');
         // En producción, servir la aplicación frontend directamente
         res.sendFile(path.join(__dirname, 'frontend/build', 'index.html'));
     } else {
@@ -105,6 +133,19 @@ app.get('/', (req, res) => {
         });
     }
 });
+
+// Frontend routing - DESPUÉS de las rutas API
+if (process.env.NODE_ENV === 'production') {
+    const path = require('path');
+    
+    // Manejar rutas del frontend (SPA routing) - TODAS las rutas que no sean API
+    app.get('*', (req, res) => {
+        // Evitar interceptar rutas de la API y health
+        if (!req.path.startsWith('/api') && !req.path.startsWith('/health')) {
+            res.sendFile(path.join(__dirname, 'frontend/build', 'index.html'));
+        }
+    });
+}
 
 // ==================== MANEJO DE ERRORES ====================
 
@@ -171,6 +212,27 @@ async function startServer() {
                 const entidades = await dbService.getAllEntidades();
                 console.log('✅ Entidades disponibles:', entidades.length);
                 
+                // Verificar tabla de comentarios
+                const comentariosTable = await dbService.execute("SHOW TABLES LIKE 'comentarios'");
+                if (comentariosTable.length === 0) {
+                    console.log('⚠️  Tabla comentarios no existe, creándola...');
+                    await dbService.execute(`
+                        CREATE TABLE IF NOT EXISTS comentarios (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            queja_id INT NOT NULL,
+                            texto TEXT NOT NULL,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                            FOREIGN KEY (queja_id) REFERENCES quejas(id) ON DELETE CASCADE,
+                            INDEX idx_queja (queja_id),
+                            INDEX idx_created_at (created_at)
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                    `);
+                    console.log('✅ Tabla comentarios creada');
+                } else {
+                    console.log('✅ Tabla comentarios existe');
+                }
+                
             } catch (dbError) {
                 console.error('❌ Error verificando base de datos:', dbError.message);
             }
@@ -178,12 +240,13 @@ async function startServer() {
         
         const server = app.listen(PORT, '0.0.0.0', () => {
             console.log('\n🚀 ===================================');
-            console.log('   SISTEMA DE QUEJAS BOYACÁ v2.0');
+            console.log('   SISTEMA DE QUEJAS BOYACÁ v2.2');
             console.log('🚀 ===================================');
             console.log(`📍 Servidor: http://localhost:${PORT}`);
             console.log(`📱 API: http://localhost:${PORT}/api`);
             console.log(`💚 Health: http://localhost:${PORT}/health`);
             console.log(`🔧 Entorno: ${process.env.NODE_ENV || 'development'}`);
+            console.log(`🌐 CORS: Configurado para DELETE/PUT/PATCH`);
             console.log('=====================================\n');
         });
 

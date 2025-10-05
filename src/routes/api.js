@@ -8,7 +8,7 @@ const comentariosController = require('../controllers/comentariosController');
 const estadisticasController = require('../controllers/estadisticasController');
 
 // Importar middleware
-const { globalLimiter, complaintsLimiter, consultLimiter } = require('../middleware/rateLimiter');
+const { globalLimiter, complaintsLimiter, consultLimiter, adminLimiter } = require('../middleware/rateLimiter');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 // Aplicar rate limiting global

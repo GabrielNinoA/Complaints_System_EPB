@@ -1,5 +1,11 @@
 const { errorLogger } = require('./logger');
 
+// Middleware para capturar errores asíncronos
+const asyncHandler = (fn) => (req, res, next) => {
+    console.log('🔍 [ASYNC] AsyncHandler ejecutándose para:', req.path);
+    Promise.resolve(fn(req, res, next)).catch(next);
+};
+
 // Middleware para manejar rutas no encontradas
 const notFoundHandler = (req, res) => {
     const isApiRequest = req.originalUrl.startsWith('/api/');
@@ -100,14 +106,8 @@ function generateErrorId() {
     return `${timestamp}-${random}`;
 }
 
-// Middleware para capturar errores asíncronos
-const asyncHandler = (fn) => (req, res, next) => {
-    console.log('🔍 [ASYNC] AsyncHandler ejecutándose para:', req.path);
-    Promise.resolve(fn(req, res, next)).catch(next);
-};
-
 module.exports = {
+    asyncHandler,
     notFoundHandler,
-    errorHandler,
-    asyncHandler
+    errorHandler
 };
