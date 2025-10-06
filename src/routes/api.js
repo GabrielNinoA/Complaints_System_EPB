@@ -4,26 +4,27 @@ const router = express.Router();
 // Importar controllers
 const entidadesController = require('../controllers/entidadesController');
 const quejasController = require('../controllers/quejasController');
+const comentariosController = require('../controllers/comentariosController');
 const estadisticasController = require('../controllers/estadisticasController');
 
 // Importar middleware
-const { globalLimiter, complaintsLimiter, consultLimiter } = require('../middleware/rateLimiter');
+const { globalLimiter, complaintsLimiter, consultLimiter, adminLimiter } = require('../middleware/rateLimiter');
 const { asyncHandler } = require('../middleware/errorHandler');
 
-// Aplicar rate limiting global
-router.use(globalLimiter);
+// ⚠️ NO aplicar globalLimiter aquí - se aplicará selectivamente
+// router.use(globalLimiter); // COMENTADO PARA EVITAR BLOQUEOS
 
 // ==================== INFORMACIÓN DE LA API ====================
 
-// Información básica de la API
 router.get('/', (req, res) => {
     res.json({
         name: 'Sistema de Quejas Boyacá API',
-        version: '2.1.0',
+        version: '2.2.0',
         description: 'API para gestión de quejas ciudadanas - Departamento de Boyacá',
         endpoints: {
             entidades: '/api/entidades',
             quejas: '/api/quejas',
+            comentarios: '/api/comentarios',
             estadisticas: '/api/estadisticas',
             health: '/api/health',
             testEmail: '/api/test-email'
@@ -33,13 +34,9 @@ router.get('/', (req, res) => {
     });
 });
 
-// Health check
 router.get('/health', asyncHandler(estadisticasController.healthCheck));
 
-// Test de email
-router.get('/test-email',
-    asyncHandler(estadisticasController.testEmail)
-);
+router.get('/test-email', asyncHandler(estadisticasController.testEmail));
 
 // ==================== RUTAS DE ENTIDADES ====================
 
@@ -75,14 +72,59 @@ router.get('/quejas/entidad/:entidadId',
     asyncHandler(quejasController.getQuejasByEntidad)
 );
 
-// Ruta administrativa para eliminar quejas
+// 🔥 RUTAS ADMINISTRATIVAS - SIN RATE LIMITING RESTRICTIVO
 router.delete('/quejas/:id', 
+    (req, res, next) => {
+        console.log(`🗑️  [DELETE QUEJA] ID: ${req.params.id} - IP: ${req.ip}`);
+        next();
+    },
     asyncHandler(quejasController.deleteQueja)
 );
 
-// Ruta administrativa para actualizar estado de queja  
 router.patch('/quejas/:id/estado', 
+    (req, res, next) => {
+        console.log(`📝 [PATCH QUEJA] ID: ${req.params.id} - Estado: ${req.body.estado}`);
+        next();
+    },
     asyncHandler(quejasController.updateQuejaStatus)
+);
+
+// ==================== RUTAS DE COMENTARIOS ====================
+
+// Obtener todos los comentarios de una queja
+router.get('/quejas/:quejaId/comentarios', 
+    consultLimiter,
+    asyncHandler(comentariosController.getComentariosByQueja)
+);
+
+// Crear un nuevo comentario en una queja
+router.post('/quejas/:quejaId/comentarios', 
+    complaintsLimiter,
+    asyncHandler(comentariosController.createComentario)
+);
+
+// Obtener un comentario específico por ID
+router.get('/comentarios/:id', 
+    consultLimiter,
+    asyncHandler(comentariosController.getComentarioById)
+);
+
+// Actualizar un comentario
+router.put('/comentarios/:id',
+    (req, res, next) => {
+        console.log(`✏️  [PUT COMENTARIO] ID: ${req.params.id}`);
+        next();
+    },
+    asyncHandler(comentariosController.updateComentario)
+);
+
+// Eliminar un comentario
+router.delete('/comentarios/:id',
+    (req, res, next) => {
+        console.log(`🗑️  [DELETE COMENTARIO] ID: ${req.params.id}`);
+        next();
+    },
+    asyncHandler(comentariosController.deleteComentario)
 );
 
 // ==================== RUTAS DE ESTADÍSTICAS ====================
@@ -104,11 +146,9 @@ router.get('/reportes/csv',
 
 // ==================== RUTAS DE AUDITORÍA ====================
 
-// Ruta para consultar resumen de auditoría (admin)
 router.get('/auditoria/resumen', async (req, res) => {
     try {
         const days = parseInt(req.query.days) || 7;
-        // TODO: Implementar sistema de auditoría
         res.json({
             success: true,
             data: {
@@ -128,7 +168,6 @@ router.get('/auditoria/resumen', async (req, res) => {
 
 // ==================== RUTAS DE COMPATIBILIDAD ====================
 
-// Rutas alternativas para compatibilidad con frontend existente
 router.get('/complaints', 
     consultLimiter,
     asyncHandler(quejasController.getAllQuejas)

@@ -15,7 +15,6 @@ class DatabaseService {
 
             this.pool = mysql.createPool(dbConfig.getConfig());
             
-            // Verificar conexión
             const connection = await this.pool.getConnection();
             await connection.execute('SELECT 1');
             connection.release();
@@ -124,7 +123,6 @@ class DatabaseService {
     // ==================== MÉTODOS PARA QUEJAS ====================
 
     async getAllQuejas(limit = 100, offset = 0) {
-        // Asegurar que los parámetros sean enteros
         const limitInt = parseInt(limit);
         const offsetInt = parseInt(offset);
         
@@ -135,9 +133,12 @@ class DatabaseService {
                 e.nombre as entidad_nombre,
                 q.descripcion,
                 q.created_at,
-                q.updated_at
+                q.updated_at,
+                COUNT(c.id) as total_comentarios
             FROM quejas q 
             INNER JOIN entidades e ON q.entidad_id = e.id 
+            LEFT JOIN comentarios c ON q.id = c.queja_id
+            GROUP BY q.id, q.entidad_id, e.nombre, q.descripcion, q.created_at, q.updated_at
             ORDER BY q.created_at DESC 
             LIMIT ? OFFSET ?
         `;
@@ -152,10 +153,13 @@ class DatabaseService {
                 e.nombre as entidad_nombre,
                 q.descripcion,
                 q.created_at,
-                q.updated_at
+                q.updated_at,
+                COUNT(c.id) as total_comentarios
             FROM quejas q 
             INNER JOIN entidades e ON q.entidad_id = e.id 
+            LEFT JOIN comentarios c ON q.id = c.queja_id
             WHERE q.id = ?
+            GROUP BY q.id, q.entidad_id, e.nombre, q.descripcion, q.created_at, q.updated_at
         `;
         const result = await this.execute(query, [id]);
         return result.length > 0 ? result[0] : null;
@@ -171,7 +175,6 @@ class DatabaseService {
             quejaData.descripcion
         ]);
         
-        // Obtener la queja recién creada
         const newQueja = await this.getQuejaById(result.insertId);
         return {
             insertId: result.insertId,
@@ -181,15 +184,12 @@ class DatabaseService {
 
     async getQuejasByEntidad(entidadId, limit = 50, offset = 0) {
         try {
-            // Convertir parámetros a enteros de forma explícita
             const entidadIdInt = parseInt(entidadId, 10);
             
-            // Validar que el ID sea un número válido
             if (isNaN(entidadIdInt)) {
                 throw new Error('ID de entidad inválido');
             }
             
-            // Primero intentamos una consulta simple sin paginación
             const simpleQuery = `
                 SELECT 
                     q.id,
@@ -197,66 +197,114 @@ class DatabaseService {
                     e.nombre as entidad_nombre,
                     q.descripcion,
                     q.created_at,
-                    q.updated_at
+                    q.updated_at,
+                    COUNT(c.id) as total_comentarios
                 FROM quejas q 
                 INNER JOIN entidades e ON q.entidad_id = e.id 
-                WHERE q.entidad_id = ? AND q.deleted = 0
+                LEFT JOIN comentarios c ON q.id = c.queja_id
+                WHERE q.entidad_id = ?
+                GROUP BY q.id, q.entidad_id, e.nombre, q.descripcion, q.created_at, q.updated_at
                 ORDER BY q.created_at DESC
             `;
             
             const allResults = await this.execute(simpleQuery, [entidadIdInt]);
-
-            // Aplicar paginación manualmente
+            
             const limitInt = parseInt(limit, 10) || 50;
             const offsetInt = parseInt(offset, 10) || 0;
-
+            
             return allResults.slice(offsetInt, offsetInt + limitInt);
         } catch (error) {
             console.error('❌ Error en getQuejasByEntidad:', error.message);
             throw error;
         }
     }
+
     async deleteQueja(id) {
-        const query = 'UPDATE quejas SET deleted = 1 WHERE id = ?';
+        const query = 'DELETE FROM quejas WHERE id = ?';
         const result = await this.execute(query, [id]);
         return result.affectedRows > 0;
     }
 
-    async modificarEstadoQueja(id, state) {
-        // Validar que el estado sea uno de los permitidos
-        const estadosValidos = ['open', 'in process', 'closed'];
-        const stateNormalizado = state.toLowerCase();
-        
-        if (!estadosValidos.includes(stateNormalizado)) {
-            throw new Error('Estado inválido. Los estados válidos son: open, in process, closed');
-        }
+    // ==================== MÉTODOS PARA COMENTARIOS ====================
 
-        const query = 'UPDATE quejas SET state = ?, updated_at = NOW() WHERE id = ?';
-        
-        try {
-            const result = await this.execute(query, [stateNormalizado, id]);
-            
-            if (result.affectedRows === 0) {
-                throw new Error('No se encontró la queja con el ID especificado');
-            }
-            
-            return {
-                success: true,
-                message: `Estado de la queja actualizado a ${stateNormalizado}`,
-                quejaId: id,
-                newState: stateNormalizado
-            };
-        } catch (error) {
-            console.error('❌ Error actualizando estado de la queja:', error.message);
-            throw error;
-        }
+    async getComentariosByQueja(quejaId) {
+        const query = `
+            SELECT 
+                id,
+                queja_id,
+                texto,
+                created_at as fecha,
+                created_at,
+                updated_at
+            FROM comentarios 
+            WHERE queja_id = ?
+            ORDER BY created_at ASC
+        `;
+        return await this.execute(query, [quejaId]);
     }
+
+    async getComentarioById(id) {
+        const query = `
+            SELECT 
+                id,
+                queja_id,
+                texto,
+                created_at as fecha,
+                created_at,
+                updated_at
+            FROM comentarios 
+            WHERE id = ?
+        `;
+        const result = await this.execute(query, [id]);
+        return result.length > 0 ? result[0] : null;
+    }
+
+    async createComentario(comentarioData) {
+        const query = `
+            INSERT INTO comentarios (queja_id, texto) 
+            VALUES (?, ?)
+        `;
+        const result = await this.execute(query, [
+            comentarioData.queja_id,
+            comentarioData.texto
+        ]);
+        
+        const newComentario = await this.getComentarioById(result.insertId);
+        return {
+            insertId: result.insertId,
+            ...newComentario
+        };
+    }
+
+    async updateComentario(id, texto) {
+        const query = `
+            UPDATE comentarios 
+            SET texto = ?, updated_at = CURRENT_TIMESTAMP 
+            WHERE id = ?
+        `;
+        const result = await this.execute(query, [texto, id]);
+        return result.affectedRows > 0;
+    }
+
+    async deleteComentario(id) {
+        const query = 'DELETE FROM comentarios WHERE id = ?';
+        const result = await this.execute(query, [id]);
+        return result.affectedRows > 0;
+    }
+
+    async getComentariosCount(quejaId) {
+        const query = 'SELECT COUNT(*) as count FROM comentarios WHERE queja_id = ?';
+        const result = await this.execute(query, [quejaId]);
+        return result[0].count;
+    }
+
     // ==================== MÉTODOS PARA ESTADÍSTICAS ====================
 
     async getEstadisticasGenerales() {
         const queries = {
             totalQuejas: 'SELECT COUNT(*) as total FROM quejas',
             totalEntidades: 'SELECT COUNT(*) as total FROM entidades WHERE estado = true',
+            totalComentarios: 'SELECT COUNT(*) as total FROM comentarios',
             quejasHoy: `
                 SELECT COUNT(*) as total 
                 FROM quejas 
@@ -267,6 +315,11 @@ class DatabaseService {
                 FROM quejas 
                 WHERE MONTH(created_at) = MONTH(CURDATE()) 
                 AND YEAR(created_at) = YEAR(CURDATE())
+            `,
+            comentariosHoy: `
+                SELECT COUNT(*) as total 
+                FROM comentarios 
+                WHERE DATE(fecha) = CURDATE()
             `
         };
 
@@ -285,9 +338,11 @@ class DatabaseService {
             SELECT 
                 e.id,
                 e.nombre as entidad, 
-                COUNT(q.id) as count 
+                COUNT(DISTINCT q.id) as count,
+                COUNT(c.id) as comentarios_count
             FROM entidades e 
-            LEFT JOIN quejas q ON e.id = q.entidad_id AND q.deleted = 0
+            LEFT JOIN quejas q ON e.id = q.entidad_id 
+            LEFT JOIN comentarios c ON q.id = c.queja_id
             WHERE e.estado = true
             GROUP BY e.id, e.nombre 
             ORDER BY count DESC
@@ -308,8 +363,6 @@ class DatabaseService {
         return await this.execute(query, [limite]);
     }
 
-    // ==================== MÉTODO PARA CONTAR QUEJAS ====================
-
     async getQuejasCount() {
         const query = 'SELECT COUNT(*) as count FROM quejas';
         const result = await this.execute(query);
@@ -317,10 +370,10 @@ class DatabaseService {
     }
 
     async getQuejasByEntidadCount(entidadId) {
-    const entidadIdInt = parseInt(entidadId);
-    const query = 'SELECT COUNT(*) as count FROM quejas WHERE entidad_id = ? AND deleted = 0';
-    const result = await this.execute(query, [entidadIdInt]);
-    return result[0].count;
+        const entidadIdInt = parseInt(entidadId);
+        const query = 'SELECT COUNT(*) as count FROM quejas WHERE entidad_id = ?';
+        const result = await this.execute(query, [entidadIdInt]);
+        return result[0].count;
     }
 }
 
