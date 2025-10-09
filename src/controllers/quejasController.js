@@ -307,11 +307,15 @@ class QuejasController {
     async updateQuejaStatus(req, res) {
         try {
             const startTime = Date.now();
-            const { id } = req.params;
-            const { estado } = req.body;
-
-            const idValidation = QueryValidator.validateId(id);
+            
+            console.log('🔍 [UPDATE STATE] Iniciando proceso de actualización de estado...');
+            console.log('   ID recibido:', req.params.id);
+            console.log('   Body:', req.body);
+            
+            // Validar ID
+            const idValidation = QueryValidator.validateId(req.params.id);
             if (!idValidation.isValid) {
+                console.log('❌ [UPDATE STATE] Validación de ID falló:', idValidation.errors);
                 return res.status(400).json({
                     success: false,
                     message: 'ID de queja inválido',
@@ -319,8 +323,29 @@ class QuejasController {
                 });
             }
 
-            const estadosValidos = ['pendiente', 'en_proceso', 'resuelto', 'cerrado'];
-            if (!estado || !estadosValidos.includes(estado)) {
+            console.log('✅ [UPDATE STATE] ID validado:', idValidation.id);
+
+            // Validar clave de administrador
+            const adminKey = req.body?.adminKey || req.query?.adminKey;
+            console.log('🔑 [UPDATE STATE] AdminKey recibida:', adminKey ? '***' : 'NO');
+            console.log('🔑 [UPDATE STATE] AdminKey esperada:', process.env.ADMIN_UPDATE_KEY ? '***' : 'NO CONFIGURADA');
+            
+            if (!adminKey || adminKey !== process.env.ADMIN_UPDATE_KEY) {
+                console.log('❌ [UPDATE STATE] Clave de administrador incorrecta o faltante');
+                return res.status(403).json({
+                    success: false,
+                    message: 'Clave de administrador incorrecta o faltante'
+                });
+            }
+
+            console.log('✅ [UPDATE STATE] Clave de administrador correcta');
+
+            // Validar estado
+            const { state } = req.body;
+            const estadosValidos = ['open', 'in process', 'closed'];
+            
+            if (!state || !estadosValidos.includes(state)) {
+                console.log('❌ [UPDATE STATE] Estado inválido:', state);
                 return res.status(400).json({
                     success: false,
                     message: 'Estado inválido',
@@ -328,30 +353,53 @@ class QuejasController {
                 });
             }
 
-            const quejaExistente = await dbService.getQuejaById(parseInt(id));
+            console.log('✅ [UPDATE STATE] Estado validado:', state);
+
+            // Verificar que la queja existe
+            const quejaExistente = await dbService.getQuejaById(idValidation.id);
+            console.log('🔍 [UPDATE STATE] Queja encontrada:', quejaExistente ? 'SÍ' : 'NO');
+            
             if (!quejaExistente) {
+                console.log('❌ [UPDATE STATE] Queja no encontrada en BD');
                 return res.status(404).json({
                     success: false,
                     message: 'Queja no encontrada'
                 });
             }
 
-            res.json({
-                success: true,
-                message: 'Estado de queja actualizado exitosamente',
-                data: {
-                    id: parseInt(id),
-                    estadoAnterior: 'pendiente',
-                    estadoNuevo: estado
-                },
-                timestamp: new Date().toISOString(),
-                responseTime: Date.now() - startTime
-            });
+            console.log('🔄 [UPDATE STATE] Estado anterior:', quejaExistente.state);
+
+            // Actualizar el estado
+            const actualizado = await dbService.updateQuejaState(idValidation.id, state);
+            console.log('✅ [UPDATE STATE] Resultado:', actualizado);
+
+            if (actualizado) {
+                console.log('✅ [UPDATE STATE] Estado actualizado exitosamente');
+                return res.status(200).json({
+                    success: true,
+                    message: 'Estado de queja actualizado exitosamente',
+                    data: {
+                        id: idValidation.id,
+                        estadoAnterior: quejaExistente.state,
+                        estadoNuevo: state
+                    },
+                    timestamp: new Date().toISOString(),
+                    responseTime: Date.now() - startTime
+                });
+            } else {
+                console.log('❌ [UPDATE STATE] No se pudo actualizar (returned false)');
+                return res.status(400).json({
+                    success: false,
+                    message: 'No se pudo actualizar el estado de la queja'
+                });
+            }
         } catch (error) {
-            console.error('❌ Error actualizando estado de queja:', error.message);
-            res.status(500).json({
+            console.error('❌ [UPDATE STATE] Error capturado:', error);
+            console.error('   Stack:', error.stack);
+            return res.status(500).json({
                 success: false,
                 message: 'Error actualizando estado de queja',
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
                 timestamp: new Date().toISOString()
             });
         }

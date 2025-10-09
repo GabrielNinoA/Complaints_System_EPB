@@ -49,6 +49,15 @@ const ComplaintsList = () => {
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [selectedQueja, setSelectedQueja] = useState(null);
 
+  const getStateLabel = (state) => {
+    const stateLabels = {
+      'open': 'Abierta',
+      'in process': 'En proceso',
+      'closed': 'Cerrada'
+    };
+    return stateLabels[state] || 'Abierta';
+  };
+
   const toggleMenu = (id) => {
     setOpenMenuId(openMenuId === id ? null : id);
   };
@@ -98,8 +107,70 @@ const ComplaintsList = () => {
   };
 
   const handleUpdate = async (id) => {
-    console.log("✏️ Actualizar estado de queja:", id);
-    setOpenMenuId(null);
+    const adminKey = window.prompt('Ingrese la clave de administrador para actualizar el estado:');
+    
+    if (!adminKey) {
+      alert('Operación cancelada');
+      setOpenMenuId(null);
+      return;
+    }
+
+    // Mostrar opciones de estado
+    const estados = [
+      { value: 'open', label: 'Abierta' },
+      { value: 'in process', label: 'En proceso' },
+      { value: 'closed', label: 'Cerrada' }
+    ];
+
+    const estadoSeleccionado = window.prompt(
+      'Seleccione el nuevo estado:\n\n' +
+      estados.map((estado, index) => `${index + 1}. ${estado.label} (${estado.value})`).join('\n') +
+      '\n\nIngrese el número (1-3):'
+    );
+
+    if (!estadoSeleccionado) {
+      setOpenMenuId(null);
+      return;
+    }
+
+    const indice = parseInt(estadoSeleccionado) - 1;
+    if (indice < 0 || indice >= estados.length) {
+      alert('Selección inválida');
+      setOpenMenuId(null);
+      return;
+    }
+
+    const nuevoEstado = estados[indice].value;
+
+    try {
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/quejas/${id}/estado`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            state: nuevoEstado,
+            adminKey: adminKey
+          })
+        }
+      );
+
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`Estado actualizado exitosamente a: ${estados[indice].label}`);
+        fetchComplaints();
+      } else {
+        alert(data.message || 'Error al actualizar el estado');
+      }
+    } catch (error) {
+      console.error('Error actualizando estado:', error);
+      alert('Error de conexión');
+    } finally {
+      setOpenMenuId(null);
+    }
   };
 
   const handleVerComentarios = (queja) => {
@@ -189,7 +260,10 @@ const ComplaintsList = () => {
             },
               React.createElement('div', { className: 'complaint-header' },
                 React.createElement('div', { className: 'complaint-title' },
-                  `Queja #${String((currentPage - 1) * complaintsPerPage + index + 1).padStart(2, '0')}`
+                  `Queja #${String((currentPage - 1) * complaintsPerPage + index + 1).padStart(2, '0')}`,
+                  React.createElement('span', { 
+                    className: `complaint-state state-${complaint.state || 'open'}` 
+                  }, getStateLabel(complaint.state || 'open'))
                 ),
                 React.createElement('div', { className: 'menu-wrapper' },
                   React.createElement('button', {
