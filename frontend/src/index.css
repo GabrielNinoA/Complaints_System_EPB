@@ -331,6 +331,36 @@ body {
   font-weight: bold;
   margin: 0;
   color: rgba(14, 22, 33, 1);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.complaint-state {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.state-open {
+  background-color: #e3f2fd;
+  color: #1976d2;
+  border: 1px solid #bbdefb;
+}
+
+.state-in\ process {
+  background-color: #fff3e0;
+  color: #f57c00;
+  border: 1px solid #ffcc02;
+}
+
+.state-closed {
+  background-color: #e8f5e8;
+  color: #388e3c;
+  border: 1px solid #c8e6c9;
 }
 
 .complaint-description {

@@ -132,13 +132,14 @@ class DatabaseService {
                 q.entidad_id,
                 e.nombre as entidad_nombre,
                 q.descripcion,
+                q.state,
                 q.created_at,
                 q.updated_at,
                 COUNT(c.id) as total_comentarios
             FROM quejas q 
             INNER JOIN entidades e ON q.entidad_id = e.id 
             LEFT JOIN comentarios c ON q.id = c.queja_id
-            GROUP BY q.id, q.entidad_id, e.nombre, q.descripcion, q.created_at, q.updated_at
+            GROUP BY q.id, q.entidad_id, e.nombre, q.descripcion, q.state, q.created_at, q.updated_at
             ORDER BY q.created_at DESC 
             LIMIT ? OFFSET ?
         `;
@@ -152,6 +153,7 @@ class DatabaseService {
                 q.entidad_id,
                 e.nombre as entidad_nombre,
                 q.descripcion,
+                q.state,
                 q.created_at,
                 q.updated_at,
                 COUNT(c.id) as total_comentarios
@@ -159,7 +161,7 @@ class DatabaseService {
             INNER JOIN entidades e ON q.entidad_id = e.id 
             LEFT JOIN comentarios c ON q.id = c.queja_id
             WHERE q.id = ?
-            GROUP BY q.id, q.entidad_id, e.nombre, q.descripcion, q.created_at, q.updated_at
+            GROUP BY q.id, q.entidad_id, e.nombre, q.descripcion, q.state, q.created_at, q.updated_at
         `;
         const result = await this.execute(query, [id]);
         return result.length > 0 ? result[0] : null;
@@ -196,6 +198,7 @@ class DatabaseService {
                     q.entidad_id,
                     e.nombre as entidad_nombre,
                     q.descripcion,
+                    q.state,
                     q.created_at,
                     q.updated_at,
                     COUNT(c.id) as total_comentarios
@@ -203,7 +206,7 @@ class DatabaseService {
                 INNER JOIN entidades e ON q.entidad_id = e.id 
                 LEFT JOIN comentarios c ON q.id = c.queja_id
                 WHERE q.entidad_id = ?
-                GROUP BY q.id, q.entidad_id, e.nombre, q.descripcion, q.created_at, q.updated_at
+                GROUP BY q.id, q.entidad_id, e.nombre, q.descripcion, q.state, q.created_at, q.updated_at
                 ORDER BY q.created_at DESC
             `;
             
@@ -222,6 +225,16 @@ class DatabaseService {
     async deleteQueja(id) {
         const query = 'DELETE FROM quejas WHERE id = ?';
         const result = await this.execute(query, [id]);
+        return result.affectedRows > 0;
+    }
+
+    async updateQuejaState(id, state) {
+        const query = `
+            UPDATE quejas 
+            SET state = ?, updated_at = CURRENT_TIMESTAMP 
+            WHERE id = ?
+        `;
+        const result = await this.execute(query, [state, id]);
         return result.affectedRows > 0;
     }
 

@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS quejas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     entidad_id INT NOT NULL,
     descripcion TEXT NOT NULL,
+    state ENUM('open', 'in process', 'closed') NOT NULL DEFAULT 'open',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
@@ -35,7 +36,8 @@ CREATE TABLE IF NOT EXISTS quejas (
     
     -- Índices para optimización
     INDEX idx_entidad (entidad_id),
-    INDEX idx_created_at (created_at)
+    INDEX idx_created_at (created_at),
+    INDEX idx_state (state)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Crear tabla de comentarios
@@ -80,6 +82,22 @@ INSERT IGNORE INTO entidades (nombre, estado) VALUES
 ('INDEPORTES', true),
 ('ALCALDÍA MUNICIPAL', true),
 ('SECRETARÍA DE SALUD', true);
+
+-- PASO 4: Agregar columna state a la tabla quejas si no existe
+-- Esto es para bases de datos existentes que no tienen la columna
+SET @col_exists = 0;
+SELECT COUNT(*) INTO @col_exists 
+FROM information_schema.columns 
+WHERE table_schema = DATABASE() 
+AND table_name = 'quejas' 
+AND column_name = 'state';
+
+SET @sql = IF(@col_exists = 0, 
+    'ALTER TABLE quejas ADD COLUMN state ENUM(\'open\', \'in process\', \'closed\') NOT NULL DEFAULT \'open\'', 
+    'SELECT "Columna state ya existe" as mensaje');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- Verificar que se insertaron correctamente
 SELECT 'Entidades después de la corrección:' as mensaje;
