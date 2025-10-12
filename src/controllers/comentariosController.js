@@ -81,16 +81,17 @@ class ComentariosController {
 
             const comentarios = await dbService.getComentariosByQueja(quejaId);
 
-            const responseData = {
-                ...comentarios,
+            res.json({
+                success: true,
+                data: comentarios,
                 count: comentarios.length,
                 queja: {
                     id: quejaValidation.resource.id,
                     entidad: quejaValidation.resource.entidad_nombre
-                }
-            };
-
-            return this.successResponse(res, responseData);
+                },
+                timestamp: new Date().toISOString(),
+                responseTime: this.getResponseTime()
+            });
         } catch (error) {
             console.error('❌ Error obteniendo comentarios:', error.message);
             return this.errorResponse(res, 'Error obteniendo comentarios');
