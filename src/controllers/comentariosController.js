@@ -6,17 +6,14 @@ class ComentariosController {
         this.startTime = null;
     }
 
-    // Helper para inicializar el tiempo de respuesta
     initResponseTime() {
         this.startTime = Date.now();
     }
 
-    // Helper para obtener el tiempo de respuesta
     getResponseTime() {
         return this.startTime ? Date.now() - this.startTime : 0;
     }
 
-    // Helper para respuestas exitosas con datos
     successResponse(res, data, message = 'Operación exitosa', statusCode = 200) {
         return res.status(statusCode).json({
             success: true,
@@ -27,7 +24,6 @@ class ComentariosController {
         });
     }
 
-    // Helper para respuestas exitosas sin datos
     successResponseNoData(res, message = 'Operación exitosa', statusCode = 200) {
         return res.status(statusCode).json({
             success: true,
@@ -37,7 +33,6 @@ class ComentariosController {
         });
     }
 
-    // Helper para respuestas de error
     errorResponse(res, message = 'Error interno del servidor', statusCode = 500, errors = null) {
         return res.status(statusCode).json({
             success: false,
@@ -48,12 +43,10 @@ class ComentariosController {
         });
     }
 
-    // Helper para validar ID de parámetros
     validateIdParam(param) {
         return QueryValidator.validateId(param);
     }
 
-    // Helper para manejar validación de ID con respuesta de error
     handleIdValidation(res, validation) {
         if (!validation.isValid) {
             return this.errorResponse(res, 'ID inválido', 400, validation.errors);
@@ -72,8 +65,8 @@ class ComentariosController {
         }
         return { exists: true, resource };
     }
-    // Obtener todos los comentarios de una queja
-    async getComentariosByQueja(req, res) {
+
+    getComentariosByQueja = async (req, res) => {
         try {
             this.initResponseTime();
             
@@ -104,8 +97,7 @@ class ComentariosController {
         }
     }
 
-    // Obtener un comentario por ID
-    async getComentarioById(req, res) {
+    getComentarioById = async (req, res) => {
         try {
             this.initResponseTime();
             
@@ -123,8 +115,7 @@ class ComentariosController {
         }
     }
 
-    // Crear nuevo comentario
-    async createComentario(req, res) {
+    createComentario = async (req, res) => {
         try {
             this.initResponseTime();
             
@@ -149,8 +140,7 @@ class ComentariosController {
         }
     }
 
-    // Actualizar comentario
-    async updateComentario(req, res) {
+    updateComentario = async (req, res) => {
         try {
             this.initResponseTime();
             
@@ -185,8 +175,7 @@ class ComentariosController {
         }
     }
 
-    // Eliminar comentario
-    async deleteComentario(req, res) {
+    deleteComentario = async (req, res) => {
         try {
             this.initResponseTime();
             
