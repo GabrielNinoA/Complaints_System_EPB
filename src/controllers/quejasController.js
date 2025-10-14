@@ -3,56 +3,66 @@ const { QuejaValidator, QueryValidator } = require('../validators');
 
 class QuejasController {
     // Obtener todas las quejas con paginación
+
+    sendSuccessResponse(res, data, startTime, statusCode = 200, additionalFields = {}) {
+        const response = {
+            success: true,
+            ...additionalFields, // El mensaje personalizado o paginación van aquí
+            data,
+            timestamp: new Date().toISOString(),
+            responseTime: Date.now() - startTime,
+        };
+        return res.status(statusCode).json(response);
+    }
+
+    sendErrorResponse(res, statusCode, message, error = null) {
+        const response = {
+            success: false,
+            message,
+            timestamp: new Date().toISOString(),
+        };
+        if (error && process.env.NODE_ENV === 'development') {
+            response.error = error.message;
+        }
+        return res.status(statusCode).json(response);
+    }
+
+    sendValidationErrorResponse(res, message, errors = []) {
+        return res.status(400).json({
+            success: false,
+            message,
+            errors,
+            timestamp: new Date().toISOString(),
+        });
+    }
+
+    logError(operation, error) {
+        console.error(`❌ Error ${operation}:`, error.message);
+    }
+
+    validateId(id) {
+        return QueryValidator.validateId(id);
+    }
+
     async getAllQuejas(req, res) {
         try {
             const startTime = Date.now();
             
-            const validation = QueryValidator.validatePagination(req.query);
+            const validation = this.validatePagination(req.query);
             if (!validation.isValid) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Parámetros de consulta inválidos',
-                    errors: validation.errors
-                });
+                return this.sendValidationErrorResponse(res, 'Parámetros de paginación inválidos', validation.errors);
             }
 
             let { limit, offset } = validation.params;
 
-            if (!limit || limit > 10) {
-                limit = 10;
-            }
 
-            const [quejas, totalCount] = await Promise.all([
-                dbService.getAllQuejas(limit, offset),
-                dbService.getQuejasCount()
-            ]);
-
-            const totalPages = Math.ceil(totalCount / limit);
-            const currentPage = Math.floor(offset / limit) + 1;
-
-            res.json({
-                success: true,
-                data: quejas,
-                pagination: {
-                    total: totalCount,
-                    count: quejas.length,
-                    limit,
-                    offset,
-                    currentPage,
-                    totalPages,
-                    hasNext: offset + limit < totalCount,
-                    hasPrev: offset > 0
-                },
-                timestamp: new Date().toISOString(),
-                responseTime: Date.now() - startTime
-            });
+            const [quejas, totalCount] = await this.fetchQuejasAndCount(limit, offset);
+            const pagination = this._buildPaginationObject(totalCount, limit, offset);
+            return this.sendSuccessResponse(res, quejas, startTime, 200, { pagination });
+            
         } catch (error) {
-            console.error('❌ Error obteniendo quejas:', error.message);
-            res.status(500).json({
-                success: false,
-                message: 'Error obteniendo quejas',
-                timestamp: new Date().toISOString()
-            });
+            this.logError('obteniendo todas las quejas',error);
+            return this.sendErrorResponse(res, 500, 'Error obteniendo quejas', error);
         }
     }
 
@@ -61,37 +71,22 @@ class QuejasController {
         try {
             const startTime = Date.now();
             
-            const validation = QueryValidator.validateId(req.params.id);
+            const validation = this.validateId(req.params.id);
             if (!validation.isValid) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'ID inválido',
-                    errors: validation.errors
-                });
+                return this.sendValidationErrorResponse(res, 'ID inválido', validation.errors);
             }
 
             const queja = await dbService.getQuejaById(validation.id);
             
             if (!queja) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Queja no encontrada'
-                });
+                return this.sendErrorResponse(res, 404, 'Queja no encontrada');
             }
 
-            res.json({
-                success: true,
-                data: queja,
-                timestamp: new Date().toISOString(),
-                responseTime: Date.now() - startTime
-            });
+            return this.sendSuccessResponse(res, queja, startTime);
+
         } catch (error) {
-            console.error('❌ Error obteniendo queja:', error.message);
-            res.status(500).json({
-                success: false,
-                message: 'Error obteniendo queja',
-                timestamp: new Date().toISOString()
-            });
+            this.logError('obteniendo queja por ID', error);
+            return this.sendErrorResponse(res, 500, 'Error obteniendo la queja', error);
         }
     }
 
@@ -102,45 +97,23 @@ class QuejasController {
             
             const validation = QuejaValidator.validate(req.body);
             if (!validation.isValid) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Datos inválidos',
-                    errors: validation.errors
-                });
+                return this.sendValidationErrorResponse(res, 'Datos de queja inválidos', validation.errors);
             }
 
             const quejaData = QuejaValidator.sanitize(req.body);
             
-            const entidad = await dbService.getEntidadById(quejaData.entidad_id);
+            const entidad = await this.getAndEnsureEntidadExists(quejaData.entidad_id);
             if (!entidad) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Entidad no válida'
-                });
+                return this.sendErrorResponse(res, 404, 'Entidad no encontrada');
             }
 
             const nuevaQueja = await dbService.createQueja(quejaData);
+            const responseData = this.buildCreateQuejaResponse(nuevaQueja, quejaData, entidad);
 
-            res.status(201).json({
-                success: true,
-                message: 'Queja creada exitosamente',
-                data: {
-                    id: nuevaQueja.insertId,
-                    entidad_id: quejaData.entidad_id,
-                    entidad_nombre: entidad.nombre,
-                    descripcion: quejaData.descripcion,
-                    created_at: nuevaQueja.created_at
-                },
-                timestamp: new Date().toISOString(),
-                responseTime: Date.now() - startTime
-            });
+            return this.sendSuccessResponse(res, responseData, startTime, 201, { message: 'Queja creada exitosamente' });
         } catch (error) {
-            console.error('❌ Error creando queja:', error.message);
-            res.status(500).json({
-                success: false,
-                message: 'Error creando queja',
-                timestamp: new Date().toISOString()
-            });
+            this.logError('creando queja', error);
+            return this.sendErrorResponse(res, 500, 'Error creando la queja', error);
         }
     }
 
@@ -149,73 +122,32 @@ class QuejasController {
         try {
             const startTime = Date.now();
             
-            const idValidation = QueryValidator.validateId(req.params.entidadId);
+            const idValidation = this.validateId(req.params.entidadId);
             if (!idValidation.isValid) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'ID de entidad inválido',
-                    errors: idValidation.errors
-                });
+                return this.sendValidationErrorResponse(res, 'ID de entidad inválido', idValidation.errors);
             }
 
-            const paginationValidation = QueryValidator.validatePagination(req.query);
+            const paginationValidation = this.validatePagination(req.query);
             if (!paginationValidation.isValid) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Parámetros de consulta inválidos',
-                    errors: paginationValidation.errors
-                });
+                return this.sendValidationErrorResponse(res, 'Parámetros de paginación inválidos', paginationValidation.errors);
             }
 
-            const entidadId = idValidation.id;
-            let { limit, offset } = paginationValidation.params;
-            if (!limit || limit > 10) {
-                limit = 10;
-            }
-
-            const entidad = await dbService.getEntidadById(entidadId);
+            const entidad = await this.getAndEnsureEntidadExists(idValidation.id);
             if (!entidad) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Entidad no encontrada'
-                });
+                return this.sendErrorResponse(res, 404, 'Entidad no encontrada');
             }
 
-            const [quejas, totalCount] = await Promise.all([
-                dbService.getQuejasByEntidad(entidadId, limit, offset),
-                dbService.getQuejasByEntidadCount(entidadId)
-            ]);
+            const { limit, offset } = paginationValidation.params;
+            const [quejas, totalCount] = await this.fetchQuejasByEntidadAndCount(entidad.id, limit, offset);
+            const pagination = this.buildPaginationObject(totalCount, limit, offset);
 
-            const totalPages = Math.ceil(totalCount / limit);
-            const currentPage = Math.floor(offset / limit) + 1;
-
-            res.json({
-                success: true,
-                data: quejas,
-                entidad: {
-                    id: entidad.id,
-                    nombre: entidad.nombre
-                },
-                pagination: {
-                    total: totalCount,
-                    count: quejas.length,
-                    limit,
-                    offset,
-                    currentPage,
-                    totalPages,
-                    hasNext: offset + limit < totalCount,
-                    hasPrev: offset > 0
-                },
-                timestamp: new Date().toISOString(),
-                responseTime: Date.now() - startTime
+            return this.sendSuccessResponse(res, quejas, startTime, 200, {
+                entidad: { id: entidad.id, nombre: entidad.nombre },
+                pagination
             });
         } catch (error) {
-            console.error('❌ Error obteniendo quejas por entidad:', error.message);
-            res.status(500).json({
-                success: false,
-                message: 'Error obteniendo quejas por entidad',
-                timestamp: new Date().toISOString()
-            });
+            this.logError('obteniendo quejas por entidad', error);
+            return this.sendErrorResponse(res, 500, 'Error obteniendo quejas por entidad', error);
         }
     }
 
@@ -223,83 +155,30 @@ class QuejasController {
     async deleteQueja(req, res) {
         try {
             const startTime = Date.now();
-            
-            console.log('🔍 [DELETE] Iniciando proceso de eliminación...');
-            console.log('   ID recibido:', req.params.id);
-            console.log('   Body:', req.body);
-            console.log('   Query:', req.query);
-            
-            // Validar ID
-            const validation = QueryValidator.validateId(req.params.id);
-            if (!validation.isValid) {
-                console.log('❌ [DELETE] Validación de ID falló:', validation.errors);
-                return res.status(400).json({
-                    success: false,
-                    message: 'ID inválido',
-                    errors: validation.errors
-                });
+            this.authorizeAdmin(req, process.env.ADMIN_DELETE_KEY); // Lanza error si no está autorizado
+
+            const idValidation = this.validateId(req.params.id);
+            if (!idValidation.isValid) {
+                return this.sendValidationErrorResponse(res, 'ID de queja inválido', idValidation.errors);
             }
 
-            console.log('✅ [DELETE] ID validado:', validation.id);
+            await this.getAndEnsureQuejaExists(idValidation.id); // Lanza error si no existe
 
-            // Validar clave de administrador
-            const adminKey = req.body?.adminKey || req.query?.adminKey;
-            console.log('🔑 [DELETE] AdminKey recibida:', adminKey ? '***' : 'NO');
-            console.log('🔑 [DELETE] AdminKey esperada:', process.env.ADMIN_DELETE_KEY ? '***' : 'NO CONFIGURADA');
-            
-            if (!adminKey || adminKey !== process.env.ADMIN_DELETE_KEY) {
-                console.log('❌ [DELETE] Clave de administrador incorrecta o faltante');
-                return res.status(403).json({
-                    success: false,
-                    message: 'Clave de administrador incorrecta o faltante'
-                });
-            }
+            await dbService.deleteQueja(idValidation.id);
 
-            console.log('✅ [DELETE] Clave de administrador correcta');
+            return this.sendSuccessResponse(res, null, startTime, 200, { message: 'Queja eliminada exitosamente' });
 
-            // Verificar que la queja existe
-            const existingQueja = await dbService.getQuejaById(validation.id);
-            console.log('🔍 [DELETE] Queja encontrada:', existingQueja ? 'SÍ' : 'NO');
-            
-            if (!existingQueja) {
-                console.log('❌ [DELETE] Queja no encontrada en BD');
-                return res.status(404).json({
-                    success: false,
-                    message: 'Queja no encontrada'
-                });
-            }
-
-            console.log('🗑️  [DELETE] Ejecutando eliminación...');
-
-            // Eliminar la queja
-            const deleted = await dbService.deleteQueja(validation.id);
-            
-            console.log('✅ [DELETE] Resultado:', deleted);
-
-            if (deleted) {
-                console.log('✅ [DELETE] Queja eliminada exitosamente');
-                return res.status(200).json({
-                    success: true,
-                    message: 'Queja eliminada exitosamente',
-                    timestamp: new Date().toISOString(),
-                    responseTime: Date.now() - startTime
-                });
-            } else {
-                console.log('❌ [DELETE] No se pudo eliminar (returned false)');
-                return res.status(400).json({
-                    success: false,
-                    message: 'No se pudo eliminar la queja'
-                });
-            }
         } catch (error) {
-            console.error('❌ [DELETE] Error capturado:', error);
-            console.error('   Stack:', error.stack);
-            return res.status(500).json({
-                success: false,
-                message: 'Error eliminando queja',
-                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-                timestamp: new Date().toISOString()
-            });
+            this.logError('eliminando queja', error);
+            // Si el error es de autorización, se envía un 403.
+            if (error.name === 'AuthorizationError') {
+                return this.sendErrorResponse(res, 403, error.message);
+            }
+            // Si el error es de "no encontrado", se envía un 404.
+            if (error.name === 'NotFoundError') {
+                return this.sendErrorResponse(res, 404, error.message);
+            }
+            return this.sendErrorResponse(res, 500, 'Error eliminando la queja', error);
         }
     }
 
@@ -307,102 +186,117 @@ class QuejasController {
     async updateQuejaStatus(req, res) {
         try {
             const startTime = Date.now();
-            
-            console.log('🔍 [UPDATE STATE] Iniciando proceso de actualización de estado...');
-            console.log('   ID recibido:', req.params.id);
-            console.log('   Body:', req.body);
-            
-            // Validar ID
-            const idValidation = QueryValidator.validateId(req.params.id);
+            this.authorizeAdmin(req, process.env.ADMIN_UPDATE_KEY);
+
+            const idValidation = this.validateId(req.params.id);
             if (!idValidation.isValid) {
-                console.log('❌ [UPDATE STATE] Validación de ID falló:', idValidation.errors);
-                return res.status(400).json({
-                    success: false,
-                    message: 'ID de queja inválido',
-                    errors: idValidation.errors
-                });
+                return this.sendValidationErrorResponse(res, 'ID de queja inválido', idValidation.errors);
             }
 
-            console.log('✅ [UPDATE STATE] ID validado:', idValidation.id);
-
-            // Validar clave de administrador
-            const adminKey = req.body?.adminKey || req.query?.adminKey;
-            console.log('🔑 [UPDATE STATE] AdminKey recibida:', adminKey ? '***' : 'NO');
-            console.log('🔑 [UPDATE STATE] AdminKey esperada:', process.env.ADMIN_UPDATE_KEY ? '***' : 'NO CONFIGURADA');
-            
-            if (!adminKey || adminKey !== process.env.ADMIN_UPDATE_KEY) {
-                console.log('❌ [UPDATE STATE] Clave de administrador incorrecta o faltante');
-                return res.status(403).json({
-                    success: false,
-                    message: 'Clave de administrador incorrecta o faltante'
-                });
-            }
-
-            console.log('✅ [UPDATE STATE] Clave de administrador correcta');
-
-            // Validar estado
             const { state } = req.body;
-            const estadosValidos = ['open', 'in process', 'closed'];
-            
-            if (!state || !estadosValidos.includes(state)) {
-                console.log('❌ [UPDATE STATE] Estado inválido:', state);
-                return res.status(400).json({
-                    success: false,
-                    message: 'Estado inválido',
-                    validStates: estadosValidos
-                });
-            }
+            this.validateState(state); // Lanza error si el estado es inválido
 
-            console.log('✅ [UPDATE STATE] Estado validado:', state);
+            const quejaExistente = await this.getAndEnsureQuejaExists(idValidation.id);
+            await dbService.updateQuejaState(idValidation.id, state);
 
-            // Verificar que la queja existe
-            const quejaExistente = await dbService.getQuejaById(idValidation.id);
-            console.log('🔍 [UPDATE STATE] Queja encontrada:', quejaExistente ? 'SÍ' : 'NO');
-            
-            if (!quejaExistente) {
-                console.log('❌ [UPDATE STATE] Queja no encontrada en BD');
-                return res.status(404).json({
-                    success: false,
-                    message: 'Queja no encontrada'
-                });
-            }
+            const responseData = {
+                id: idValidation.id,
+                estadoAnterior: quejaExistente.state,
+                estadoNuevo: state,
+            };
 
-            console.log('🔄 [UPDATE STATE] Estado anterior:', quejaExistente.state);
+            return this.sendSuccessResponse(res, responseData, startTime, 200, { message: 'Estado de queja actualizado' });
 
-            // Actualizar el estado
-            const actualizado = await dbService.updateQuejaState(idValidation.id, state);
-            console.log('✅ [UPDATE STATE] Resultado:', actualizado);
-
-            if (actualizado) {
-                console.log('✅ [UPDATE STATE] Estado actualizado exitosamente');
-                return res.status(200).json({
-                    success: true,
-                    message: 'Estado de queja actualizado exitosamente',
-                    data: {
-                        id: idValidation.id,
-                        estadoAnterior: quejaExistente.state,
-                        estadoNuevo: state
-                    },
-                    timestamp: new Date().toISOString(),
-                    responseTime: Date.now() - startTime
-                });
-            } else {
-                console.log('❌ [UPDATE STATE] No se pudo actualizar (returned false)');
-                return res.status(400).json({
-                    success: false,
-                    message: 'No se pudo actualizar el estado de la queja'
-                });
-            }
         } catch (error) {
-            console.error('❌ [UPDATE STATE] Error capturado:', error);
-            console.error('   Stack:', error.stack);
-            return res.status(500).json({
-                success: false,
-                message: 'Error actualizando estado de queja',
-                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-                timestamp: new Date().toISOString()
-            });
+            this.logError('actualizando estado de queja', error);
+            if (error.name === 'AuthorizationError') {
+                return this.sendErrorResponse(res, 403, error.message);
+            }
+            if (error.name === 'NotFoundError') {
+                return this.sendErrorResponse(res, 404, error.message);
+            }
+            if (error.name === 'ValidationError') {
+                return this.sendValidationErrorResponse(res, error.message);
+            }
+            return this.sendErrorResponse(res, 500, 'Error actualizando el estado', error);
         }
+    }
+    validatePagination(query) {
+        const validation = QueryValidator.validatePagination(query);
+        if (validation.isValid) {
+            if (!validation.params.limit || validation.params.limit > 10) {
+                validation.params.limit = 10; // Aplicar límite por defecto
+            }
+        }
+        return validation;
+    }
+    authorizeAdmin(req, expectedKey) {
+        const adminKey = req.body?.adminKey || req.query?.adminKey;
+        if (!adminKey || adminKey !== expectedKey) {
+            const error = new Error('Clave de administrador incorrecta o faltante');
+            error.name = 'AuthorizationError';
+            throw error;
+        }
+    }
+    async getAndEnsureQuejaExists(id) {
+        const queja = await dbService.getQuejaById(id);
+        if (!queja) {
+            const error = new Error('Queja no encontrada');
+            error.name = 'NotFoundError';
+            throw error;
+        }
+        return queja;
+    }
+
+    async getAndEnsureEntidadExists(id) {
+        return await dbService.getEntidadById(id);
+    }
+    
+    validateState(state) {
+        const validStates = ['open', 'in process', 'closed'];
+        if (!state || !validStates.includes(state)) {
+            const error = new Error(`Estado inválido. Los estados válidos son: ${validStates.join(', ')}`);
+            error.name = 'ValidationError';
+            throw error;
+        }
+    }
+
+    buildPaginationObject(totalCount, limit, offset) {
+        const totalPages = Math.ceil(totalCount / limit);
+        const currentPage = Math.floor(offset / limit) + 1;
+        return {
+            total: totalCount,
+            limit,
+            offset,
+            currentPage,
+            totalPages,
+            hasNext: offset + limit < totalCount,
+            hasPrev: offset > 0,
+        };
+    }
+
+    buildCreateQuejaResponse(nuevaQueja, quejaData, entidad) {
+        return {
+            id: nuevaQueja.insertId,
+            entidad_id: quejaData.entidad_id,
+            entidad_nombre: entidad.nombre,
+            descripcion: quejaData.descripcion,
+            created_at: nuevaQueja.created_at
+        };
+    }
+    
+    async fetchQuejasAndCount(limit, offset) {
+        return Promise.all([
+            dbService.getAllQuejas(limit, offset),
+            dbService.getQuejasCount()
+        ]);
+    }
+
+    async fetchQuejasByEntidadAndCount(entidadId, limit, offset) {
+        return Promise.all([
+            dbService.getQuejasByEntidad(entidadId, limit, offset),
+            dbService.getQuejasByEntidadCount(entidadId)
+        ]);
     }
 }
 
