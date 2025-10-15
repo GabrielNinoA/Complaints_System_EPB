@@ -1,6 +1,5 @@
 const dbService = require('../services/database');
 
-// Importar el servicio de email de forma segura
 let emailService = null;
 try {
     emailService = require('../services/emailService');
@@ -10,7 +9,6 @@ try {
 
 class EstadisticasController {
     constructor() {
-        // Bind explícito de todos los métodos para evitar problemas de contexto
         this.getEstadisticasGenerales = this.getEstadisticasGenerales.bind(this);
         this.getQuejasPorEntidad = this.getQuejasPorEntidad.bind(this);
         this.getTendenciaMensual = this.getTendenciaMensual.bind(this);
@@ -19,9 +17,14 @@ class EstadisticasController {
         this.getReportes = this.getReportes.bind(this);
         this.getReporteCSV = this.getReporteCSV.bind(this);
         this.testEmail = this.testEmail.bind(this);
+
+        this._getUserInfo = this._getUserInfo.bind(this);
+        this._sendEmailNotification = this._sendEmailNotification.bind(this);
+        this._formatNotification = this._formatNotification.bind(this);
+        this._respondSuccess = this._respondSuccess.bind(this);
+        this._respondError = this._respondError.bind(this);
     }
 
-    // Función auxiliar para obtener información del usuario
     _getUserInfo(req) {
         return {
             ip: req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || 'Desconocida',
@@ -32,19 +35,15 @@ class EstadisticasController {
         };
     }
 
-    // Función auxiliar para enviar notificación por email (non-blocking)
     async _sendEmailNotification(reportData, userInfo) {
-        // Si el servicio de email no está disponible, salir silenciosamente
         if (!emailService) {
             console.log('📧 Servicio de email no disponible, saltando notificación');
             return { success: true, skipped: true, reason: 'Servicio no disponible' };
         }
 
         try {
-            // Ejecutar en background sin bloquear la respuesta principal
             const emailPromise = emailService.sendReportNotification(reportData, userInfo);
             
-            // No esperar la respuesta del email - continuar con la respuesta principal
             emailPromise.then(result => {
                 if (result.success && !result.skipped) {
                     console.log('📧 Notificación enviada exitosamente:', result.messageId);
@@ -64,7 +63,31 @@ class EstadisticasController {
         }
     }
 
-    // Obtener estadísticas generales del sistema
+    _formatNotification(emailNotification) {
+        if (emailNotification && emailNotification.success) {
+            return {
+                email_queued: true,
+                background: emailNotification.background || false
+            };
+        }
+        return null;
+    }
+
+    _respondSuccess(res, body, status = 200) {
+        res.status(status).json(body);
+    }
+
+    _respondError(res, status = 500, message = 'Error', error = null, extra = {}) {
+        const payload = {
+            success: false,
+            message,
+            error: process.env.NODE_ENV === 'development' && error ? (error.message || error) : undefined,
+            timestamp: new Date().toISOString(),
+            ...extra
+        };
+        res.status(status).json(payload);
+    }
+
     async getEstadisticasGenerales(req, res) {
         try {
             const startTime = Date.now();
@@ -73,7 +96,6 @@ class EstadisticasController {
             const estadisticas = await dbService.getEstadisticasGenerales();
             const responseTime = Date.now() - startTime;
 
-            // Preparar datos del reporte para email
             const reportData = {
                 tipo: 'Estadísticas Generales',
                 totalRegistros: estadisticas.totalQuejas,
@@ -86,10 +108,9 @@ class EstadisticasController {
                 responseTime
             };
 
-            // Enviar notificación por email en background
             const emailNotification = await this._sendEmailNotification(reportData, userInfo);
 
-            res.json({
+            this._respondSuccess(res, {
                 success: true,
                 data: {
                     total_quejas: estadisticas.totalQuejas,
@@ -97,25 +118,16 @@ class EstadisticasController {
                     quejas_hoy: estadisticas.quejasHoy,
                     quejas_mes_actual: estadisticas.quejasMes
                 },
-                notification: emailNotification && emailNotification.success ? {
-                    email_queued: true,
-                    background: emailNotification.background || false
-                } : null,
+                notification: this._formatNotification(emailNotification),
                 timestamp: new Date().toISOString(),
                 responseTime
             });
         } catch (error) {
             console.error('❌ Error obteniendo estadísticas generales:', error.message);
-            res.status(500).json({
-                success: false,
-                message: 'Error obteniendo estadísticas generales',
-                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-                timestamp: new Date().toISOString()
-            });
+            this._respondError(res, 500, 'Error obteniendo estadísticas generales', error);
         }
     }
 
-    // Obtener distribución de quejas por entidad
     async getQuejasPorEntidad(req, res) {
         try {
             const startTime = Date.now();
@@ -124,58 +136,42 @@ class EstadisticasController {
             const distribucion = await dbService.getQuejasPorEntidad();
             const responseTime = Date.now() - startTime;
 
-            // Preparar datos del reporte para email
             const reportData = {
                 tipo: 'Distribución por Entidad',
                 totalRegistros: distribucion.length,
                 responseTime
             };
 
-            // Enviar notificación por email en background
             const emailNotification = await this._sendEmailNotification(reportData, userInfo);
             
-            res.json({
+            this._respondSuccess(res, {
                 success: true,
                 data: distribucion,
                 count: distribucion.length,
-                notification: emailNotification && emailNotification.success ? {
-                    email_queued: true,
-                    background: emailNotification.background || false
-                } : null,
+                notification: this._formatNotification(emailNotification),
                 timestamp: new Date().toISOString(),
                 responseTime
             });
         } catch (error) {
             console.error('❌ Error obteniendo distribución por entidad:', error.message);
-            res.status(500).json({
-                success: false,
-                message: 'Error obteniendo distribución por entidad',
-                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-                timestamp: new Date().toISOString()
-            });
+            this._respondError(res, 500, 'Error obteniendo distribución por entidad', error);
         }
     }
 
-    // Obtener tendencia mensual de quejas
     async getTendenciaMensual(req, res) {
         try {
             const startTime = Date.now();
             const userInfo = this._getUserInfo(req);
             
-            // Obtener parámetro de límite (por defecto 12 meses)
             const limite = parseInt(req.query.limite) || 12;
             
             if (limite < 1 || limite > 24) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'El límite debe estar entre 1 y 24 meses'
-                });
+                return this._respondError(res, 400, 'El límite debe estar entre 1 y 24 meses');
             }
             
             const tendencia = await dbService.getQuejasPorMes(limite);
             const responseTime = Date.now() - startTime;
 
-            // Preparar datos del reporte para email
             const reportData = {
                 tipo: 'Tendencia Mensual',
                 totalRegistros: tendencia.length,
@@ -183,39 +179,28 @@ class EstadisticasController {
                 responseTime
             };
 
-            // Enviar notificación por email en background
             const emailNotification = await this._sendEmailNotification(reportData, userInfo);
             
-            res.json({
+            this._respondSuccess(res, {
                 success: true,
                 data: tendencia,
                 count: tendencia.length,
                 periodo: `Últimos ${limite} meses`,
-                notification: emailNotification && emailNotification.success ? {
-                    email_queued: true,
-                    background: emailNotification.background || false
-                } : null,
+                notification: this._formatNotification(emailNotification),
                 timestamp: new Date().toISOString(),
                 responseTime
             });
         } catch (error) {
             console.error('❌ Error obteniendo tendencia mensual:', error.message);
-            res.status(500).json({
-                success: false,
-                message: 'Error obteniendo tendencia mensual',
-                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-                timestamp: new Date().toISOString()
-            });
+            this._respondError(res, 500, 'Error obteniendo tendencia mensual', error);
         }
     }
 
-    // Obtener reporte completo
     async getReporteCompleto(req, res) {
         try {
             const startTime = Date.now();
             const userInfo = this._getUserInfo(req);
             
-            // Ejecutar todas las consultas en paralelo
             const [estadisticasGenerales, distribucionEntidades, tendenciaMensual] = await Promise.all([
                 dbService.getEstadisticasGenerales(),
                 dbService.getQuejasPorEntidad(),
@@ -224,7 +209,6 @@ class EstadisticasController {
 
             const responseTime = Date.now() - startTime;
 
-            // Preparar datos del reporte para email
             const reportData = {
                 tipo: 'Reporte Completo',
                 totalRegistros: estadisticasGenerales.totalQuejas,
@@ -237,10 +221,9 @@ class EstadisticasController {
                 responseTime
             };
 
-            // Enviar notificación por email en background
             const emailNotification = await this._sendEmailNotification(reportData, userInfo);
 
-            res.json({
+            this._respondSuccess(res, {
                 success: true,
                 data: {
                     resumen: {
@@ -252,36 +235,25 @@ class EstadisticasController {
                     distribucion_por_entidad: distribucionEntidades,
                     tendencia_mensual: tendenciaMensual
                 },
-                notification: emailNotification && emailNotification.success ? {
-                    email_queued: true,
-                    background: emailNotification.background || false
-                } : null,
+                notification: this._formatNotification(emailNotification),
                 generado_en: new Date().toISOString(),
                 responseTime
             });
         } catch (error) {
             console.error('❌ Error generando reporte completo:', error.message);
-            res.status(500).json({
-                success: false,
-                message: 'Error generando reporte completo',
-                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-                timestamp: new Date().toISOString()
-            });
+            this._respondError(res, 500, 'Error generando reporte completo', error);
         }
     }
 
-    // Health check de la base de datos
     async healthCheck(req, res) {
         try {
             const startTime = Date.now();
             
-            // Verificar conexión a base de datos
             const isHealthy = await dbService.healthCheck();
             const connectionInfo = await dbService.getConnectionInfo();
             
             const responseTime = Date.now() - startTime;
 
-            // Verificar también el estado del email
             let emailStatus = 'not_configured';
             if (emailService) {
                 try {
@@ -334,13 +306,11 @@ class EstadisticasController {
         }
     }
 
-    // Obtener reportes generales (compatibilidad con API original) - MÉTODO PRINCIPAL QUE FALLA
     async getReportes(req, res) {
         try {
             const startTime = Date.now();
             const userInfo = this._getUserInfo(req);
             
-            // Validar que dbService esté disponible
             if (!dbService) {
                 throw new Error('Servicio de base de datos no disponible');
             }
@@ -349,7 +319,6 @@ class EstadisticasController {
             const distribucion = await dbService.getQuejasPorEntidad();
             const responseTime = Date.now() - startTime;
 
-            // Preparar datos del reporte para email
             const reportData = {
                 tipo: 'Reportes Generales',
                 totalRegistros: estadisticas?.totalQuejas || 0,
@@ -362,10 +331,9 @@ class EstadisticasController {
                 responseTime
             };
 
-            // Enviar notificación por email en background
             const emailNotification = await this._sendEmailNotification(reportData, userInfo);
             
-            res.json({
+            this._respondSuccess(res, {
                 success: true,
                 data: {
                     resumen: {
@@ -376,26 +344,17 @@ class EstadisticasController {
                     },
                     por_entidad: distribucion || []
                 },
-                notification: emailNotification && emailNotification.success ? {
-                    email_queued: true,
-                    background: emailNotification.background || false
-                } : null,
+                notification: this._formatNotification(emailNotification),
                 timestamp: new Date().toISOString(),
                 responseTime
             });
         } catch (error) {
             console.error('❌ Error obteniendo reportes:', error.message);
             console.error('❌ Stack trace:', error.stack);
-            res.status(500).json({
-                success: false,
-                message: 'Error obteniendo reportes',
-                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-                timestamp: new Date().toISOString()
-            });
+            this._respondError(res, 500, 'Error obteniendo reportes', error);
         }
     }
 
-    // Obtener reporte en formato CSV
     async getReporteCSV(req, res) {
         try {
             const startTime = Date.now();
@@ -404,7 +363,6 @@ class EstadisticasController {
             const quejas = await dbService.getAllQuejas();
             const responseTime = Date.now() - startTime;
 
-            // Preparar datos del reporte para email
             const reportData = {
                 tipo: 'Reporte CSV',
                 totalRegistros: quejas.length,
@@ -412,22 +370,18 @@ class EstadisticasController {
                 responseTime
             };
 
-            // Enviar notificación por email en background (no esperar respuesta)
             this._sendEmailNotification(reportData, userInfo).catch(error => {
                 console.error('❌ Error enviando notificación de CSV (no crítico):', error.message);
             });
             
-            // Configurar headers para descarga CSV
             res.setHeader('Content-Type', 'text/csv; charset=utf-8');
             res.setHeader('Content-Disposition', 'attachment; filename=reporte_quejas.csv');
             res.setHeader('Cache-Control', 'no-cache');
             res.setHeader('X-Report-Generated', new Date().toISOString());
             res.setHeader('X-Total-Records', quejas.length);
             
-            // Encabezados CSV
             let csvContent = 'ID,Entidad,Descripcion,Fecha_Creacion\n';
             
-            // Agregar datos
             for (const queja of quejas) {
                 const descripcion = (queja.descripcion || '').replace(/"/g, '""').replace(/\n/g, ' ');
                 csvContent += `${queja.id},"${queja.entidad_nombre || ''}","${descripcion}","${queja.fecha_creacion}"\n`;
@@ -436,16 +390,10 @@ class EstadisticasController {
             res.send(csvContent);
         } catch (error) {
             console.error('❌ Error generando reporte CSV:', error.message);
-            res.status(500).json({
-                success: false,
-                message: 'Error generando reporte CSV',
-                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-                timestamp: new Date().toISOString()
-            });
+            this._respondError(res, 500, 'Error generando reporte CSV', error);
         }
     }
 
-    // Endpoint para probar el servicio de email
     async testEmail(req, res) {
         try {
             if (!emailService) {
@@ -458,7 +406,7 @@ class EstadisticasController {
 
             const result = await emailService.sendTestEmail();
             
-            res.json({
+            this._respondSuccess(res, {
                 success: true,
                 message: 'Test de email completado',
                 result,
@@ -468,12 +416,7 @@ class EstadisticasController {
             });
         } catch (error) {
             console.error('❌ Error en test de email:', error.message);
-            res.status(500).json({
-                success: false,
-                message: 'Error en test de email',
-                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-                timestamp: new Date().toISOString()
-            });
+            this._respondError(res, 500, 'Error en test de email', error);
         }
     }
 }
