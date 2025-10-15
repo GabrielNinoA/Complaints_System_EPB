@@ -77,7 +77,15 @@ class EstadisticasController {
         res.status(status).json(body);
     }
 
+    _logError(error, context = '') {
+        console.error(`❌ ${context}:`, error.message);
+        if (error.stack && process.env.NODE_ENV === 'development') {
+            console.error('Stack:', error.stack);
+        }
+    }
+
     _respondError(res, status = 500, message = 'Error', error = null, extra = {}) {
+        this._logError(error, message);
         const payload = {
             success: false,
             message,
@@ -350,7 +358,6 @@ class EstadisticasController {
             });
         } catch (error) {
             console.error('❌ Error obteniendo reportes:', error.message);
-            console.error('❌ Stack trace:', error.stack);
             this._respondError(res, 500, 'Error obteniendo reportes', error);
         }
     }
