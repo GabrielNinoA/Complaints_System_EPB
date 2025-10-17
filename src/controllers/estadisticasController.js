@@ -17,12 +17,36 @@ class EstadisticasController {
         this.getReportes = this.getReportes.bind(this);
         this.getReporteCSV = this.getReporteCSV.bind(this);
         this.testEmail = this.testEmail.bind(this);
+    }
 
-        this._getUserInfo = this._getUserInfo.bind(this);
-        this._sendEmailNotification = this._sendEmailNotification.bind(this);
-        this._formatNotification = this._formatNotification.bind(this);
-        this._respondSuccess = this._respondSuccess.bind(this);
-        this._respondError = this._respondError.bind(this);
+    _sendSuccessResponse(res, data, extras = {}) {
+        res.json({
+            success: true,
+            data,
+            ...extras,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    _sendErrorResponse(res, message, statusCode = 500, error = null) {
+        console.error(`❌ ${message}:`, error?.message || '');
+        if (error?.stack) console.error('❌ Stack trace:', error.stack);
+        
+        res.status(statusCode).json({
+            success: false,
+            message,
+            error: process.env.NODE_ENV === 'development' ? error?.message : undefined,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    _addNotificationInfo(emailNotification) {
+        return emailNotification?.success ? {
+            notification: {
+                email_queued: true,
+                background: emailNotification.background || false
+            }
+        } : {};
     }
 
     _getUserInfo(req) {
@@ -33,6 +57,10 @@ class EstadisticasController {
             url: req.originalUrl || req.url || 'N/A',
             timestamp: new Date().toISOString()
         };
+    }
+
+    _getResponseTime(startTime) {
+        return Date.now() - startTime;
     }
 
     async _sendEmailNotification(reportData, userInfo) {
@@ -63,159 +91,123 @@ class EstadisticasController {
         }
     }
 
-    _formatNotification(emailNotification) {
-        if (emailNotification && emailNotification.success) {
-            return {
-                email_queued: true,
-                background: emailNotification.background || false
-            };
+    async _executeEndpoint(req, res, dataFetcher, reportDataBuilder) {
+        const startTime = Date.now();
+        const userInfo = this._getUserInfo(req);
+        
+        try {
+            const data = await dataFetcher();
+            const responseTime = this._getResponseTime(startTime);
+            
+            const reportData = reportDataBuilder(data, responseTime);
+            
+            const emailNotification = await this._sendEmailNotification(reportData, userInfo);
+            
+            this._sendSuccessResponse(res, data, {
+                ...this._addNotificationInfo(emailNotification),
+                responseTime
+            });
+        } catch (error) {
+            this._sendErrorResponse(res, 'Error procesando solicitud', 500, error);
         }
-        return null;
-    }
-
-    _respondSuccess(res, body, status = 200) {
-        res.status(status).json(body);
-    }
-
-    _logError(error, context = '') {
-        console.error(`❌ ${context}:`, error.message);
-        if (error.stack && process.env.NODE_ENV === 'development') {
-            console.error('Stack:', error.stack);
-        }
-    }
-
-    _respondError(res, status = 500, message = 'Error', error = null, extra = {}) {
-        this._logError(error, message);
-        const payload = {
-            success: false,
-            message,
-            error: process.env.NODE_ENV === 'development' && error ? (error.message || error) : undefined,
-            timestamp: new Date().toISOString(),
-            ...extra
-        };
-        res.status(status).json(payload);
     }
 
     async getEstadisticasGenerales(req, res) {
-        try {
-            const startTime = Date.now();
-            const userInfo = this._getUserInfo(req);
-            
-            const estadisticas = await dbService.getEstadisticasGenerales();
-            const responseTime = Date.now() - startTime;
-
-            const reportData = {
+        await this._executeEndpoint(
+            req,
+            res,
+            async () => {
+                const stats = await dbService.getEstadisticasGenerales();
+                return {
+                    total_quejas: stats.totalQuejas,
+                    total_entidades: stats.totalEntidades,
+                    quejas_hoy: stats.quejasHoy,
+                    quejas_mes_actual: stats.quejasMes
+                };
+            },
+            (data, responseTime) => ({
                 tipo: 'Estadísticas Generales',
-                totalRegistros: estadisticas.totalQuejas,
-                estadisticas: {
-                    total_quejas: estadisticas.totalQuejas,
-                    total_entidades: estadisticas.totalEntidades,
-                    quejas_hoy: estadisticas.quejasHoy,
-                    quejas_mes_actual: estadisticas.quejasMes
-                },
+                totalRegistros: data.total_quejas,
+                estadisticas: data,
                 responseTime
-            };
-
-            const emailNotification = await this._sendEmailNotification(reportData, userInfo);
-
-            this._respondSuccess(res, {
-                success: true,
-                data: {
-                    total_quejas: estadisticas.totalQuejas,
-                    total_entidades: estadisticas.totalEntidades,
-                    quejas_hoy: estadisticas.quejasHoy,
-                    quejas_mes_actual: estadisticas.quejasMes
-                },
-                notification: this._formatNotification(emailNotification),
-                timestamp: new Date().toISOString(),
-                responseTime
-            });
-        } catch (error) {
-            console.error('❌ Error obteniendo estadísticas generales:', error.message);
-            this._respondError(res, 500, 'Error obteniendo estadísticas generales', error);
-        }
+            })
+        );
     }
 
     async getQuejasPorEntidad(req, res) {
-        try {
-            const startTime = Date.now();
-            const userInfo = this._getUserInfo(req);
-            
-            const distribucion = await dbService.getQuejasPorEntidad();
-            const responseTime = Date.now() - startTime;
-
-            const reportData = {
+        await this._executeEndpoint(
+            req,
+            res,
+            async () => await dbService.getQuejasPorEntidad(),
+            (data, responseTime) => ({
                 tipo: 'Distribución por Entidad',
-                totalRegistros: distribucion.length,
+                totalRegistros: data.length,
                 responseTime
+            })
+        );
+        
+        if (res.statusCode === 200) {
+            const originalJson = res.json;
+            res.json = function(body) {
+                if (body.success && body.data) {
+                    body.count = body.data.length;
+                }
+                return originalJson.call(this, body);
             };
-
-            const emailNotification = await this._sendEmailNotification(reportData, userInfo);
-            
-            this._respondSuccess(res, {
-                success: true,
-                data: distribucion,
-                count: distribucion.length,
-                notification: this._formatNotification(emailNotification),
-                timestamp: new Date().toISOString(),
-                responseTime
-            });
-        } catch (error) {
-            console.error('❌ Error obteniendo distribución por entidad:', error.message);
-            this._respondError(res, 500, 'Error obteniendo distribución por entidad', error);
         }
     }
 
     async getTendenciaMensual(req, res) {
+        const startTime = Date.now();
+        const userInfo = this._getUserInfo(req);
+        
         try {
-            const startTime = Date.now();
-            const userInfo = this._getUserInfo(req);
-            
             const limite = parseInt(req.query.limite) || 12;
             
             if (limite < 1 || limite > 24) {
-                return this._respondError(res, 400, 'El límite debe estar entre 1 y 24 meses');
+                return this._sendErrorResponse(
+                    res,
+                    'El límite debe estar entre 1 y 24 meses',
+                    400
+                );
             }
             
             const tendencia = await dbService.getQuejasPorMes(limite);
-            const responseTime = Date.now() - startTime;
-
+            const responseTime = this._getResponseTime(startTime);
+            
             const reportData = {
                 tipo: 'Tendencia Mensual',
                 totalRegistros: tendencia.length,
                 periodo: `Últimos ${limite} meses`,
                 responseTime
             };
-
+            
             const emailNotification = await this._sendEmailNotification(reportData, userInfo);
             
-            this._respondSuccess(res, {
-                success: true,
-                data: tendencia,
+            this._sendSuccessResponse(res, tendencia, {
                 count: tendencia.length,
                 periodo: `Últimos ${limite} meses`,
-                notification: this._formatNotification(emailNotification),
-                timestamp: new Date().toISOString(),
+                ...this._addNotificationInfo(emailNotification),
                 responseTime
             });
         } catch (error) {
-            console.error('❌ Error obteniendo tendencia mensual:', error.message);
-            this._respondError(res, 500, 'Error obteniendo tendencia mensual', error);
+            this._sendErrorResponse(res, 'Error obteniendo tendencia mensual', 500, error);
         }
     }
 
     async getReporteCompleto(req, res) {
+        const startTime = Date.now();
+        const userInfo = this._getUserInfo(req);
+        
         try {
-            const startTime = Date.now();
-            const userInfo = this._getUserInfo(req);
-            
-            const [estadisticasGenerales, distribucionEntidades, tendenciaMensual] = await Promise.all([
-                dbService.getEstadisticasGenerales(),
-                dbService.getQuejasPorEntidad(),
-                dbService.getQuejasPorMes(12)
-            ]);
+            const [estadisticasGenerales, distribucionEntidades, tendenciaMensual] = 
+                await Promise.all([
+                    dbService.getEstadisticasGenerales(),
+                    dbService.getQuejasPorEntidad(),
+                    dbService.getQuejasPorMes(12)
+                ]);
 
-            const responseTime = Date.now() - startTime;
+            const responseTime = this._getResponseTime(startTime);
 
             const reportData = {
                 tipo: 'Reporte Completo',
@@ -231,36 +223,32 @@ class EstadisticasController {
 
             const emailNotification = await this._sendEmailNotification(reportData, userInfo);
 
-            this._respondSuccess(res, {
-                success: true,
-                data: {
-                    resumen: {
-                        total_quejas: estadisticasGenerales.totalQuejas,
-                        total_entidades: estadisticasGenerales.totalEntidades,
-                        quejas_hoy: estadisticasGenerales.quejasHoy,
-                        quejas_mes_actual: estadisticasGenerales.quejasMes
-                    },
-                    distribucion_por_entidad: distribucionEntidades,
-                    tendencia_mensual: tendenciaMensual
+            this._sendSuccessResponse(res, {
+                resumen: {
+                    total_quejas: estadisticasGenerales.totalQuejas,
+                    total_entidades: estadisticasGenerales.totalEntidades,
+                    quejas_hoy: estadisticasGenerales.quejasHoy,
+                    quejas_mes_actual: estadisticasGenerales.quejasMes
                 },
-                notification: this._formatNotification(emailNotification),
+                distribucion_por_entidad: distribucionEntidades,
+                tendencia_mensual: tendenciaMensual
+            }, {
+                ...this._addNotificationInfo(emailNotification),
                 generado_en: new Date().toISOString(),
                 responseTime
             });
         } catch (error) {
-            console.error('❌ Error generando reporte completo:', error.message);
-            this._respondError(res, 500, 'Error generando reporte completo', error);
+            this._sendErrorResponse(res, 'Error generando reporte completo', 500, error);
         }
     }
 
     async healthCheck(req, res) {
+        const startTime = Date.now();
+        
         try {
-            const startTime = Date.now();
-            
             const isHealthy = await dbService.healthCheck();
             const connectionInfo = await dbService.getConnectionInfo();
-            
-            const responseTime = Date.now() - startTime;
+            const responseTime = this._getResponseTime(startTime);
 
             let emailStatus = 'not_configured';
             if (emailService) {
@@ -303,7 +291,6 @@ class EstadisticasController {
                 });
             }
         } catch (error) {
-            console.error('❌ Health check error:', error.message);
             res.status(503).json({
                 success: false,
                 status: 'error',
@@ -315,17 +302,17 @@ class EstadisticasController {
     }
 
     async getReportes(req, res) {
+        const startTime = Date.now();
+        const userInfo = this._getUserInfo(req);
+        
         try {
-            const startTime = Date.now();
-            const userInfo = this._getUserInfo(req);
-            
             if (!dbService) {
                 throw new Error('Servicio de base de datos no disponible');
             }
             
             const estadisticas = await dbService.getEstadisticasGenerales();
             const distribucion = await dbService.getQuejasPorEntidad();
-            const responseTime = Date.now() - startTime;
+            const responseTime = this._getResponseTime(startTime);
 
             const reportData = {
                 tipo: 'Reportes Generales',
@@ -341,34 +328,30 @@ class EstadisticasController {
 
             const emailNotification = await this._sendEmailNotification(reportData, userInfo);
             
-            this._respondSuccess(res, {
-                success: true,
-                data: {
-                    resumen: {
-                        total_quejas: estadisticas?.totalQuejas || 0,
-                        total_entidades: estadisticas?.totalEntidades || 0,
-                        quejas_hoy: estadisticas?.quejasHoy || 0,
-                        quejas_mes_actual: estadisticas?.quejasMes || 0
-                    },
-                    por_entidad: distribucion || []
+            this._sendSuccessResponse(res, {
+                resumen: {
+                    total_quejas: estadisticas?.totalQuejas || 0,
+                    total_entidades: estadisticas?.totalEntidades || 0,
+                    quejas_hoy: estadisticas?.quejasHoy || 0,
+                    quejas_mes_actual: estadisticas?.quejasMes || 0
                 },
-                notification: this._formatNotification(emailNotification),
-                timestamp: new Date().toISOString(),
+                por_entidad: distribucion || []
+            }, {
+                ...this._addNotificationInfo(emailNotification),
                 responseTime
             });
         } catch (error) {
-            console.error('❌ Error obteniendo reportes:', error.message);
-            this._respondError(res, 500, 'Error obteniendo reportes', error);
+            this._sendErrorResponse(res, 'Error obteniendo reportes', 500, error);
         }
     }
 
     async getReporteCSV(req, res) {
+        const startTime = Date.now();
+        const userInfo = this._getUserInfo(req);
+        
         try {
-            const startTime = Date.now();
-            const userInfo = this._getUserInfo(req);
-            
             const quejas = await dbService.getAllQuejas();
-            const responseTime = Date.now() - startTime;
+            const responseTime = this._getResponseTime(startTime);
 
             const reportData = {
                 tipo: 'Reporte CSV',
@@ -387,43 +370,43 @@ class EstadisticasController {
             res.setHeader('X-Report-Generated', new Date().toISOString());
             res.setHeader('X-Total-Records', quejas.length);
             
-            let csvContent = 'ID,Entidad,Descripcion,Fecha_Creacion\n';
+            const csvRows = ['ID,Entidad,Descripcion,Fecha_Creacion'];
             
             for (const queja of quejas) {
-                const descripcion = (queja.descripcion || '').replace(/"/g, '""').replace(/\n/g, ' ');
-                csvContent += `${queja.id},"${queja.entidad_nombre || ''}","${descripcion}","${queja.fecha_creacion}"\n`;
+                const descripcion = (queja.descripcion || '')
+                    .replace(/"/g, '""')
+                    .replace(/\n/g, ' ');
+                csvRows.push(
+                    `${queja.id},"${queja.entidad_nombre || ''}","${descripcion}","${queja.fecha_creacion}"`
+                );
             }
             
-            res.send(csvContent);
+            res.send(csvRows.join('\n'));
         } catch (error) {
-            console.error('❌ Error generando reporte CSV:', error.message);
-            this._respondError(res, 500, 'Error generando reporte CSV', error);
+            this._sendErrorResponse(res, 'Error generando reporte CSV', 500, error);
         }
     }
 
     async testEmail(req, res) {
         try {
             if (!emailService) {
-                return res.status(503).json({
-                    success: false,
-                    message: 'Servicio de email no disponible',
-                    timestamp: new Date().toISOString()
-                });
+                return this._sendErrorResponse(
+                    res,
+                    'Servicio de email no disponible',
+                    503
+                );
             }
 
             const result = await emailService.sendTestEmail();
             
-            this._respondSuccess(res, {
-                success: true,
+            this._sendSuccessResponse(res, {
                 message: 'Test de email completado',
                 result,
-                email_service_available: !!emailService,
-                notifications_enabled: process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true',
-                timestamp: new Date().toISOString()
+                email_service_available: true,
+                notifications_enabled: process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true'
             });
         } catch (error) {
-            console.error('❌ Error en test de email:', error.message);
-            this._respondError(res, 500, 'Error en test de email', error);
+            this._sendErrorResponse(res, 'Error en test de email', 500, error);
         }
     }
 }
