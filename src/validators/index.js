@@ -1,10 +1,6 @@
-/**
- * Wrapper classes para mantener compatibilidad con los controladores existentes
- * Estas clases delegan todas las validaciones al ValidationService centralizado
- */
+
 const validationService = require('../services/ValidationService');
 
-// Validador para datos de quejas
 class QuejaValidator {
     static validate(data) {
         return validationService.validateQueja(data);
@@ -15,7 +11,6 @@ class QuejaValidator {
     }
 }
 
-// Validador para comentarios
 class ComentarioValidator {
     static validate(data) {
         return validationService.validateComentario(data);
@@ -26,7 +21,6 @@ class ComentarioValidator {
     }
 }
 
-// Validador para parámetros de consulta
 class QueryValidator {
     static validatePagination(query) {
         return validationService.validatePagination(query);
@@ -37,7 +31,6 @@ class QueryValidator {
     }
 }
 
-// Validador para filtros de búsqueda
 class FilterValidator {
     static validateDateRange(query) {
         const errors = [];

@@ -1,17 +1,11 @@
 const mysql = require('mysql2/promise');
 const dbConfig = require('../config/database');
 
-/**
- * Repository - Clase única para manejar todas las queries de la base de datos
- * Todas las operaciones de base de datos están centralizadas aquí
- */
 class Repository {
     constructor() {
         this.pool = null;
         this.isConnected = false;
     }
-
-    // ==================== GESTIÓN DE CONEXIÓN ====================
 
     async initialize() {
         try {
@@ -73,8 +67,6 @@ class Repository {
         }
     }
 
-    // ==================== QUERIES PARA HEALTH CHECK ====================
-
     async healthCheck() {
         const result = await this.execute('SELECT 1 as healthy');
         return result[0].healthy === 1;
@@ -90,8 +82,6 @@ class Repository {
         `);
         return result[0];
     }
-
-    // ==================== QUERIES PARA ENTIDADES ====================
 
     async findAllEntidades() {
         const query = `
@@ -115,10 +105,7 @@ class Repository {
         return result.length > 0 ? result[0] : null;
     }
 
-    // ==================== QUERIES PARA QUEJAS ====================
-
     async findAllQuejas(limit, offset) {
-        // Asegurar que limit y offset son enteros
         const limitInt = parseInt(limit, 10);
         const offsetInt = parseInt(offset, 10);
         
@@ -173,7 +160,6 @@ class Repository {
     }
 
     async findQuejasByEntidad(entidadId, limit, offset) {
-        // Asegurar que limit y offset son enteros
         const limitInt = parseInt(limit, 10);
         const offsetInt = parseInt(offset, 10);
         
@@ -225,8 +211,6 @@ class Repository {
         const result = await this.execute(query, [entidadId]);
         return result[0].count;
     }
-
-    // ==================== QUERIES PARA COMENTARIOS ====================
 
     async findComentariosByQueja(quejaId) {
         const query = `
@@ -290,8 +274,6 @@ class Repository {
         const result = await this.execute(query, [quejaId]);
         return result[0].count;
     }
-
-    // ==================== QUERIES PARA ESTADÍSTICAS ====================
 
     async countAllQuejas() {
         const query = 'SELECT COUNT(*) as total FROM quejas';
@@ -360,7 +342,6 @@ class Repository {
     }
 
     async findQuejasPorMes(limite) {
-        // Asegurar que limite es entero
         const limiteInt = parseInt(limite, 10);
         
         const query = `

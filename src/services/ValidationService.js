@@ -1,14 +1,6 @@
-/**
- * ValidationService - Clase única para manejar todas las validaciones del sistema
- * Centraliza toda la lógica de validación
- */
-class ValidationService {
-    
-    // ==================== VALIDACIONES GENERALES ====================
 
-    /**
-     * Valida un ID numérico
-     */
+class ValidationService {
+   
     validateId(id) {
         const errors = [];
         
@@ -34,9 +26,6 @@ class ValidationService {
         };
     }
 
-    /**
-     * Valida parámetros de paginación
-     */
     validatePagination(query) {
         const errors = [];
         let limit = parseInt(query.limit, 10);
@@ -62,9 +51,6 @@ class ValidationService {
         };
     }
 
-    /**
-     * Valida un nombre
-     */
     validateNombre(nombre) {
         const errors = [];
         
@@ -90,22 +76,15 @@ class ValidationService {
         };
     }
 
-    // ==================== VALIDACIONES PARA QUEJAS ====================
-
-    /**
-     * Valida los datos de una queja
-     */
     validateQueja(data) {
         const errors = [];
 
-        // Validar entidad_id
         if (!data.entidad_id) {
             errors.push('Debe seleccionar una entidad');
         } else if (isNaN(data.entidad_id) || parseInt(data.entidad_id) <= 0) {
             errors.push('Debe seleccionar una entidad válida');
         }
 
-        // Validar descripción
         if (!data.descripcion) {
             errors.push('La descripción es requerida');
         } else {
@@ -130,9 +109,6 @@ class ValidationService {
         };
     }
 
-    /**
-     * Sanitiza los datos de una queja
-     */
     sanitizeQueja(data) {
         return {
             entidad_id: parseInt(data.entidad_id),
@@ -140,9 +116,6 @@ class ValidationService {
         };
     }
 
-    /**
-     * Valida el estado de una queja
-     */
     validateQuejaState(state) {
         const validStates = ['open', 'in process', 'closed'];
         const errors = [];
@@ -160,22 +133,15 @@ class ValidationService {
         };
     }
 
-    // ==================== VALIDACIONES PARA COMENTARIOS ====================
-
-    /**
-     * Valida los datos de un comentario
-     */
     validateComentario(data) {
         const errors = [];
 
-        // Validar queja_id
         if (!data.queja_id) {
             errors.push('El ID de la queja es requerido');
         } else if (isNaN(data.queja_id) || parseInt(data.queja_id) <= 0) {
             errors.push('El ID de la queja debe ser válido');
         }
 
-        // Validar texto
         if (!data.texto) {
             errors.push('El texto del comentario es requerido');
         } else {
@@ -200,9 +166,6 @@ class ValidationService {
         };
     }
 
-    /**
-     * Sanitiza los datos de un comentario
-     */
     sanitizeComentario(data) {
         return {
             queja_id: parseInt(data.queja_id),
@@ -210,9 +173,6 @@ class ValidationService {
         };
     }
 
-    /**
-     * Valida texto para actualización de comentario
-     */
     validateComentarioUpdate(texto) {
         const errors = [];
 
@@ -241,11 +201,6 @@ class ValidationService {
         };
     }
 
-    // ==================== VALIDACIONES PARA AUTENTICACIÓN ====================
-
-    /**
-     * Valida clave de administrador
-     */
     validateAdminKey(providedKey, expectedKey) {
         const errors = [];
 
@@ -261,11 +216,6 @@ class ValidationService {
         };
     }
 
-    // ==================== VALIDACIONES PARA ENTIDADES ====================
-
-    /**
-     * Valida si una entidad existe
-     */
     validateEntidadExists(entidad) {
         if (!entidad) {
             return {
@@ -280,9 +230,6 @@ class ValidationService {
         };
     }
 
-    /**
-     * Valida si una queja existe
-     */
     validateQuejaExists(queja) {
         if (!queja) {
             return {
@@ -297,9 +244,6 @@ class ValidationService {
         };
     }
 
-    /**
-     * Valida si un comentario existe
-     */
     validateComentarioExists(comentario) {
         if (!comentario) {
             return {
@@ -314,17 +258,13 @@ class ValidationService {
         };
     }
 
-    // ==================== VALIDACIONES PARA ESTADÍSTICAS ====================
 
-    /**
-     * Valida límite para consultas
-     */
     validateLimit(limit, maxLimit = 100) {
         const errors = [];
         let validatedLimit = parseInt(limit, 10);
 
         if (isNaN(validatedLimit) || validatedLimit < 1) {
-            validatedLimit = 12; // valor por defecto
+            validatedLimit = 12; 
         }
 
         if (validatedLimit > maxLimit) {
