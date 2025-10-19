@@ -1,68 +1,19 @@
-const mysql = require('mysql2/promise');
-const dbConfig = require('../config/database');
+const repository = require('../repository/Repository');
+const validationService = require('./ValidationService');
 
 class DatabaseService {
-    constructor() {
-        this.pool = null;
-        this.isConnected = false;
-    }
-
+    
     async initialize() {
-        try {
-            if (this.pool) {
-                await this.pool.end();
-            }
-
-            this.pool = mysql.createPool(dbConfig.getConfig());
-            
-            const connection = await this.pool.getConnection();
-            await connection.execute('SELECT 1');
-            connection.release();
-            
-            this.isConnected = true;
-            
-            return true;
-        } catch (error) {
-            this.isConnected = false;
-            console.error('❌ Error conectando a la base de datos:', error.message);
-            throw error;
-        }
+        return await repository.initialize();
     }
 
     async ensureConnection() {
-        if (!this.isConnected || !this.pool) {
-            await this.initialize();
-        }
-        
-        try {
-            const connection = await this.pool.getConnection();
-            await connection.ping();
-            connection.release();
-        } catch (error) {
-            await this.initialize();
-        }
-    }
-
-    async execute(query, params = []) {
-        try {
-            await this.ensureConnection();
-            const [rows] = await this.pool.execute(query, params);
-            return rows;
-        } catch (error) {
-            console.error('❌ [DATABASE] Error ejecutando consulta:', {
-                query: query.substring(0, 100) + '...',
-                error: error.message,
-                code: error.code
-            });
-            throw error;
-        }
+        return await repository.ensureConnection();
     }
 
     async healthCheck() {
         try {
-            await this.ensureConnection();
-            const result = await this.execute('SELECT 1 as healthy');
-            return result[0].healthy === 1;
+            return await repository.healthCheck();
         } catch (error) {
             console.error('❌ Health check falló:', error.message);
             return false;
@@ -71,15 +22,7 @@ class DatabaseService {
 
     async getConnectionInfo() {
         try {
-            await this.ensureConnection();
-            const result = await this.execute(`
-                SELECT 
-                    DATABASE() as current_database,
-                    USER() as db_user,
-                    VERSION() as mysql_version,
-                    NOW() as server_time
-            `);
-            return result[0];
+            return await repository.getConnectionInfo();
         } catch (error) {
             console.error('❌ Error obteniendo información de conexión:', error.message);
             return null;
@@ -87,306 +30,269 @@ class DatabaseService {
     }
 
     async close() {
-        if (this.pool) {
-            await this.pool.end();
-            this.pool = null;
-            this.isConnected = false;
-            console.log('🔌 Conexión a base de datos cerrada');
-        }
+        return await repository.close();
     }
 
-    // ==================== MÉTODOS PARA ENTIDADES ====================
-
     async getAllEntidades() {
-        const query = `
-            SELECT id, nombre, estado, created_at, updated_at 
-            FROM entidades 
-            WHERE estado = true 
-            ORDER BY nombre ASC
-        `;
-        const result = await this.execute(query);
-        return result;
+        return await repository.findAllEntidades();
     }
 
     async getEntidadById(id) {
-        const query = 'SELECT * FROM entidades WHERE id = ? AND estado = true';
-        const result = await this.execute(query, [id]);
-        return result.length > 0 ? result[0] : null;
+        // Validar ID
+        const validation = validationService.validateId(id);
+        if (!validation.isValid) {
+            throw new Error(validation.errors.join(', '));
+        }
+
+        return await repository.findEntidadById(validation.id);
     }
 
     async getEntidadByNombre(nombre) {
-        const query = 'SELECT * FROM entidades WHERE nombre LIKE ? AND estado = true LIMIT 1';
-        const result = await this.execute(query, [`%${nombre}%`]);
-        return result.length > 0 ? result[0] : null;
+        const validation = validationService.validateNombre(nombre);
+        if (!validation.isValid) {
+            throw new Error(validation.errors.join(', '));
+        }
+
+        return await repository.findEntidadByNombre(validation.value);
     }
 
-    // ==================== MÉTODOS PARA QUEJAS ====================
-
     async getAllQuejas(limit = 100, offset = 0) {
-        const limitInt = parseInt(limit);
-        const offsetInt = parseInt(offset);
+        const validation = validationService.validatePagination({ limit, offset });
         
-        const query = `
-            SELECT 
-                q.id,
-                q.entidad_id,
-                e.nombre as entidad_nombre,
-                q.descripcion,
-                q.state,
-                q.created_at,
-                q.updated_at,
-                COUNT(c.id) as total_comentarios
-            FROM quejas q 
-            INNER JOIN entidades e ON q.entidad_id = e.id 
-            LEFT JOIN comentarios c ON q.id = c.queja_id
-            GROUP BY q.id, q.entidad_id, e.nombre, q.descripcion, q.state, q.created_at, q.updated_at
-            ORDER BY q.created_at DESC 
-            LIMIT ? OFFSET ?
-        `;
-        return await this.execute(query, [limitInt, offsetInt]);
+        return await repository.findAllQuejas(
+            validation.params.limit, 
+            validation.params.offset
+        );
     }
 
     async getQuejaById(id) {
-        const query = `
-            SELECT 
-                q.id,
-                q.entidad_id,
-                e.nombre as entidad_nombre,
-                q.descripcion,
-                q.state,
-                q.created_at,
-                q.updated_at,
-                COUNT(c.id) as total_comentarios
-            FROM quejas q 
-            INNER JOIN entidades e ON q.entidad_id = e.id 
-            LEFT JOIN comentarios c ON q.id = c.queja_id
-            WHERE q.id = ?
-            GROUP BY q.id, q.entidad_id, e.nombre, q.descripcion, q.state, q.created_at, q.updated_at
-        `;
-        const result = await this.execute(query, [id]);
-        return result.length > 0 ? result[0] : null;
+        const validation = validationService.validateId(id);
+        if (!validation.isValid) {
+            throw new Error(validation.errors.join(', '));
+        }
+
+        return await repository.findQuejaById(validation.id);
     }
 
     async createQueja(quejaData) {
-        const query = `
-            INSERT INTO quejas (entidad_id, descripcion) 
-            VALUES (?, ?)
-        `;
-        const result = await this.execute(query, [
-            quejaData.entidad_id,
-            quejaData.descripcion
-        ]);
+        const validation = validationService.validateQueja(quejaData);
+        if (!validation.isValid) {
+            throw new Error(validation.errors.join(', '));
+        }
+
+        const sanitizedData = validationService.sanitizeQueja(quejaData);
+
+        const entidad = await repository.findEntidadById(sanitizedData.entidad_id);
+        const entidadValidation = validationService.validateEntidadExists(entidad);
+        if (!entidadValidation.isValid) {
+            throw new Error(entidadValidation.errors.join(', '));
+        }
+
+        const insertId = await repository.insertQueja(
+            sanitizedData.entidad_id,
+            sanitizedData.descripcion
+        );
         
-        const newQueja = await this.getQuejaById(result.insertId);
+        const newQueja = await repository.findQuejaById(insertId);
         return {
-            insertId: result.insertId,
+            insertId,
             ...newQueja
         };
     }
 
     async getQuejasByEntidad(entidadId, limit = 50, offset = 0) {
-        try {
-            const entidadIdInt = parseInt(entidadId, 10);
-            
-            if (isNaN(entidadIdInt)) {
-                throw new Error('ID de entidad inválido');
-            }
-            
-            const simpleQuery = `
-                SELECT 
-                    q.id,
-                    q.entidad_id,
-                    e.nombre as entidad_nombre,
-                    q.descripcion,
-                    q.state,
-                    q.created_at,
-                    q.updated_at,
-                    COUNT(c.id) as total_comentarios
-                FROM quejas q 
-                INNER JOIN entidades e ON q.entidad_id = e.id 
-                LEFT JOIN comentarios c ON q.id = c.queja_id
-                WHERE q.entidad_id = ?
-                GROUP BY q.id, q.entidad_id, e.nombre, q.descripcion, q.state, q.created_at, q.updated_at
-                ORDER BY q.created_at DESC
-            `;
-            
-            const allResults = await this.execute(simpleQuery, [entidadIdInt]);
-            
-            const limitInt = parseInt(limit, 10) || 50;
-            const offsetInt = parseInt(offset, 10) || 0;
-            
-            return allResults.slice(offsetInt, offsetInt + limitInt);
-        } catch (error) {
-            console.error('❌ Error en getQuejasByEntidad:', error.message);
-            throw error;
+        const idValidation = validationService.validateId(entidadId);
+        if (!idValidation.isValid) {
+            throw new Error(idValidation.errors.join(', '));
         }
+
+        const paginationValidation = validationService.validatePagination({ limit, offset });
+
+        return await repository.findQuejasByEntidad(
+            idValidation.id,
+            paginationValidation.params.limit,
+            paginationValidation.params.offset
+        );
     }
 
     async deleteQueja(id) {
-        const query = 'DELETE FROM quejas WHERE id = ?';
-        const result = await this.execute(query, [id]);
-        return result.affectedRows > 0;
+        const validation = validationService.validateId(id);
+        if (!validation.isValid) {
+            throw new Error(validation.errors.join(', '));
+        }
+
+        const queja = await repository.findQuejaById(validation.id);
+        const quejaValidation = validationService.validateQuejaExists(queja);
+        if (!quejaValidation.isValid) {
+            throw new Error(quejaValidation.errors.join(', '));
+        }
+
+        return await repository.deleteQuejaById(validation.id);
     }
 
     async updateQuejaState(id, state) {
-        const query = `
-            UPDATE quejas 
-            SET state = ?, updated_at = CURRENT_TIMESTAMP 
-            WHERE id = ?
-        `;
-        const result = await this.execute(query, [state, id]);
-        return result.affectedRows > 0;
+        const idValidation = validationService.validateId(id);
+        if (!idValidation.isValid) {
+            throw new Error(idValidation.errors.join(', '));
+        }
+
+        const stateValidation = validationService.validateQuejaState(state);
+        if (!stateValidation.isValid) {
+            throw new Error(stateValidation.errors.join(', '));
+        }
+
+        const queja = await repository.findQuejaById(idValidation.id);
+        const quejaValidation = validationService.validateQuejaExists(queja);
+        if (!quejaValidation.isValid) {
+            throw new Error(quejaValidation.errors.join(', '));
+        }
+
+        return await repository.updateQuejaState(idValidation.id, state);
     }
 
-    // ==================== MÉTODOS PARA COMENTARIOS ====================
 
     async getComentariosByQueja(quejaId) {
-        const query = `
-            SELECT 
-                id,
-                queja_id,
-                texto,
-                created_at as fecha,
-                created_at,
-                updated_at
-            FROM comentarios 
-            WHERE queja_id = ?
-            ORDER BY created_at ASC
-        `;
-        return await this.execute(query, [quejaId]);
+        const validation = validationService.validateId(quejaId);
+        if (!validation.isValid) {
+            throw new Error(validation.errors.join(', '));
+        }
+
+        const queja = await repository.findQuejaById(validation.id);
+        const quejaValidation = validationService.validateQuejaExists(queja);
+        if (!quejaValidation.isValid) {
+            throw new Error(quejaValidation.errors.join(', '));
+        }
+
+        return await repository.findComentariosByQueja(validation.id);
     }
 
     async getComentarioById(id) {
-        const query = `
-            SELECT 
-                id,
-                queja_id,
-                texto,
-                created_at as fecha,
-                created_at,
-                updated_at
-            FROM comentarios 
-            WHERE id = ?
-        `;
-        const result = await this.execute(query, [id]);
-        return result.length > 0 ? result[0] : null;
+        const validation = validationService.validateId(id);
+        if (!validation.isValid) {
+            throw new Error(validation.errors.join(', '));
+        }
+
+        return await repository.findComentarioById(validation.id);
     }
 
     async createComentario(comentarioData) {
-        const query = `
-            INSERT INTO comentarios (queja_id, texto) 
-            VALUES (?, ?)
-        `;
-        const result = await this.execute(query, [
-            comentarioData.queja_id,
-            comentarioData.texto
-        ]);
+        const validation = validationService.validateComentario(comentarioData);
+        if (!validation.isValid) {
+            throw new Error(validation.errors.join(', '));
+        }
+
+        const sanitizedData = validationService.sanitizeComentario(comentarioData);
+
+        const queja = await repository.findQuejaById(sanitizedData.queja_id);
+        const quejaValidation = validationService.validateQuejaExists(queja);
+        if (!quejaValidation.isValid) {
+            throw new Error(quejaValidation.errors.join(', '));
+        }
+
+        const insertId = await repository.insertComentario(
+            sanitizedData.queja_id,
+            sanitizedData.texto
+        );
         
-        const newComentario = await this.getComentarioById(result.insertId);
+        const newComentario = await repository.findComentarioById(insertId);
         return {
-            insertId: result.insertId,
+            insertId,
             ...newComentario
         };
     }
 
     async updateComentario(id, texto) {
-        const query = `
-            UPDATE comentarios 
-            SET texto = ?, updated_at = CURRENT_TIMESTAMP 
-            WHERE id = ?
-        `;
-        const result = await this.execute(query, [texto, id]);
-        return result.affectedRows > 0;
+        const idValidation = validationService.validateId(id);
+        if (!idValidation.isValid) {
+            throw new Error(idValidation.errors.join(', '));
+        }
+
+        const textoValidation = validationService.validateComentarioUpdate(texto);
+        if (!textoValidation.isValid) {
+            throw new Error(textoValidation.errors.join(', '));
+        }
+
+        const comentario = await repository.findComentarioById(idValidation.id);
+        const comentarioValidation = validationService.validateComentarioExists(comentario);
+        if (!comentarioValidation.isValid) {
+            throw new Error(comentarioValidation.errors.join(', '));
+        }
+
+        return await repository.updateComentario(idValidation.id, textoValidation.value);
     }
 
     async deleteComentario(id) {
-        const query = 'DELETE FROM comentarios WHERE id = ?';
-        const result = await this.execute(query, [id]);
-        return result.affectedRows > 0;
+        const validation = validationService.validateId(id);
+        if (!validation.isValid) {
+            throw new Error(validation.errors.join(', '));
+        }
+
+        const comentario = await repository.findComentarioById(validation.id);
+        const comentarioValidation = validationService.validateComentarioExists(comentario);
+        if (!comentarioValidation.isValid) {
+            throw new Error(comentarioValidation.errors.join(', '));
+        }
+
+        return await repository.deleteComentarioById(validation.id);
     }
 
     async getComentariosCount(quejaId) {
-        const query = 'SELECT COUNT(*) as count FROM comentarios WHERE queja_id = ?';
-        const result = await this.execute(query, [quejaId]);
-        return result[0].count;
-    }
-
-    // ==================== MÉTODOS PARA ESTADÍSTICAS ====================
-
-    async getEstadisticasGenerales() {
-        const queries = {
-            totalQuejas: 'SELECT COUNT(*) as total FROM quejas',
-            totalEntidades: 'SELECT COUNT(*) as total FROM entidades WHERE estado = true',
-            totalComentarios: 'SELECT COUNT(*) as total FROM comentarios',
-            quejasHoy: `
-                SELECT COUNT(*) as total 
-                FROM quejas 
-                WHERE DATE(created_at) = CURDATE()
-            `,
-            quejasMes: `
-                SELECT COUNT(*) as total 
-                FROM quejas 
-                WHERE MONTH(created_at) = MONTH(CURDATE()) 
-                AND YEAR(created_at) = YEAR(CURDATE())
-            `,
-            comentariosHoy: `
-                SELECT COUNT(*) as total 
-                FROM comentarios 
-                WHERE DATE(fecha) = CURDATE()
-            `
-        };
-
-        const results = {};
-        
-        for (const [key, query] of Object.entries(queries)) {
-            const result = await this.execute(query);
-            results[key] = result[0].total;
+        const validation = validationService.validateId(quejaId);
+        if (!validation.isValid) {
+            throw new Error(validation.errors.join(', '));
         }
 
-        return results;
+        return await repository.countComentariosByQueja(validation.id);
+    }
+
+    async getEstadisticasGenerales() {
+        const [
+            totalQuejas,
+            totalEntidades,
+            totalComentarios,
+            quejasHoy,
+            quejasMes,
+            comentariosHoy
+        ] = await Promise.all([
+            repository.countAllQuejas(),
+            repository.countAllEntidades(),
+            repository.countAllComentarios(),
+            repository.countQuejasToday(),
+            repository.countQuejasThisMonth(),
+            repository.countComentariosToday()
+        ]);
+
+        return {
+            totalQuejas,
+            totalEntidades,
+            totalComentarios,
+            quejasHoy,
+            quejasMes,
+            comentariosHoy
+        };
     }
 
     async getQuejasPorEntidad() {
-        const query = `
-            SELECT 
-                e.id,
-                e.nombre as entidad, 
-                COUNT(DISTINCT q.id) as count,
-                COUNT(c.id) as comentarios_count
-            FROM entidades e 
-            LEFT JOIN quejas q ON e.id = q.entidad_id 
-            LEFT JOIN comentarios c ON q.id = c.queja_id
-            WHERE e.estado = true
-            GROUP BY e.id, e.nombre 
-            ORDER BY count DESC
-        `;
-        return await this.execute(query);
+        return await repository.findQuejasPorEntidad();
     }
 
     async getQuejasPorMes(limite = 12) {
-        const query = `
-            SELECT 
-                DATE_FORMAT(created_at, '%Y-%m') as mes,
-                COUNT(*) as count 
-            FROM quejas 
-            GROUP BY DATE_FORMAT(created_at, '%Y-%m')
-            ORDER BY mes DESC
-            LIMIT ?
-        `;
-        return await this.execute(query, [limite]);
+        const validation = validationService.validateLimit(limite, 100);
+        
+        return await repository.findQuejasPorMes(validation.value);
     }
 
     async getQuejasCount() {
-        const query = 'SELECT COUNT(*) as count FROM quejas';
-        const result = await this.execute(query);
-        return result[0].count;
+        return await repository.countQuejas();
     }
 
     async getQuejasByEntidadCount(entidadId) {
-        const entidadIdInt = parseInt(entidadId);
-        const query = 'SELECT COUNT(*) as count FROM quejas WHERE entidad_id = ?';
-        const result = await this.execute(query, [entidadIdInt]);
-        return result[0].count;
+        const validation = validationService.validateId(entidadId);
+        if (!validation.isValid) {
+            throw new Error(validation.errors.join(', '));
+        }
+
+        return await repository.countQuejasByEntidad(validation.id);
     }
 }
 
