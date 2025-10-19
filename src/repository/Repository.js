@@ -118,6 +118,10 @@ class Repository {
     // ==================== QUERIES PARA QUEJAS ====================
 
     async findAllQuejas(limit, offset) {
+        // Asegurar que limit y offset son enteros
+        const limitInt = parseInt(limit, 10);
+        const offsetInt = parseInt(offset, 10);
+        
         const query = `
             SELECT 
                 q.id,
@@ -133,9 +137,9 @@ class Repository {
             LEFT JOIN comentarios c ON q.id = c.queja_id
             GROUP BY q.id, q.entidad_id, e.nombre, q.descripcion, q.state, q.created_at, q.updated_at
             ORDER BY q.created_at DESC 
-            LIMIT ? OFFSET ?
+            LIMIT ${limitInt} OFFSET ${offsetInt}
         `;
-        return await this.execute(query, [limit, offset]);
+        return await this.execute(query);
     }
 
     async findQuejaById(id) {
@@ -169,6 +173,10 @@ class Repository {
     }
 
     async findQuejasByEntidad(entidadId, limit, offset) {
+        // Asegurar que limit y offset son enteros
+        const limitInt = parseInt(limit, 10);
+        const offsetInt = parseInt(offset, 10);
+        
         const query = `
             SELECT 
                 q.id,
@@ -185,9 +193,9 @@ class Repository {
             WHERE q.entidad_id = ?
             GROUP BY q.id, q.entidad_id, e.nombre, q.descripcion, q.state, q.created_at, q.updated_at
             ORDER BY q.created_at DESC
-            LIMIT ? OFFSET ?
+            LIMIT ${limitInt} OFFSET ${offsetInt}
         `;
-        return await this.execute(query, [entidadId, limit, offset]);
+        return await this.execute(query, [entidadId]);
     }
 
     async deleteQuejaById(id) {
@@ -352,6 +360,9 @@ class Repository {
     }
 
     async findQuejasPorMes(limite) {
+        // Asegurar que limite es entero
+        const limiteInt = parseInt(limite, 10);
+        
         const query = `
             SELECT 
                 DATE_FORMAT(created_at, '%Y-%m') as mes,
@@ -359,9 +370,9 @@ class Repository {
             FROM quejas 
             GROUP BY DATE_FORMAT(created_at, '%Y-%m')
             ORDER BY mes DESC
-            LIMIT ?
+            LIMIT ${limiteInt}
         `;
-        return await this.execute(query, [limite]);
+        return await this.execute(query);
     }
 }
 
