@@ -6,6 +6,9 @@ const config = {
     process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3001'
   ),
   
+  // URL del microservicio de autenticación
+  AUTH_SERVICE_URL: 'https://autenticator-complaint-system-epb.onrender.com',
+  
   // Configuración de la aplicación
   APP_NAME: 'Sistema de Quejas Boyacá',
   VERSION: '2.1.0',
