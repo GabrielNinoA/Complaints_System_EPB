@@ -1,5 +1,6 @@
 const dbService = require('../services/database');
 const { QuejaValidator, QueryValidator } = require('../validators');
+const authValidationService = require('../services/authValidationService');
 
 class QuejasController {
     constructor() {
@@ -160,7 +161,11 @@ class QuejasController {
     async deleteQueja(req, res) {
         try {
             const startTime = Date.now();
-            this.authorizeAdmin(req, process.env.ADMIN_DELETE_KEY);
+            // Validar autenticación con microservicio
+            const authValidation = await authValidationService.validateAuthForOperation(req.body.username);
+            if (!authValidation.isValid) {
+                return this.sendErrorResponse(res, authValidation.statusCode, authValidation.message);
+            }
 
             const idValidation = this.validateId(req.params.id);
             if (!idValidation.isValid) {
@@ -174,9 +179,6 @@ class QuejasController {
 
         } catch (error) {
             this.logError('eliminando queja', error);
-            if (error.name === 'AuthorizationError') {
-                return this.sendErrorResponse(res, 403, error.message);
-            }
             if (error.name === 'NotFoundError') {
                 return this.sendErrorResponse(res, 404, error.message);
             }
@@ -187,8 +189,11 @@ class QuejasController {
     async updateQuejaStatus(req, res) {
         try {
             const startTime = Date.now();
-            this.authorizeAdmin(req, process.env.ADMIN_UPDATE_KEY);
-
+            // Validar autenticación con microservicio
+            const authValidation = await authValidationService.validateAuthForOperation(req.body.username);
+            if (!authValidation.isValid) {
+                return this.sendErrorResponse(res, authValidation.statusCode, authValidation.message);
+            }
             const idValidation = this.validateId(req.params.id);
             if (!idValidation.isValid) {
                 return this.sendValidationErrorResponse(res, 'ID de queja inválido', idValidation.errors);
@@ -210,9 +215,6 @@ class QuejasController {
 
         } catch (error) {
             this.logError('actualizando estado de queja', error);
-            if (error.name === 'AuthorizationError') {
-                return this.sendErrorResponse(res, 403, error.message);
-            }
             if (error.name === 'NotFoundError') {
                 return this.sendErrorResponse(res, 404, error.message);
             }
