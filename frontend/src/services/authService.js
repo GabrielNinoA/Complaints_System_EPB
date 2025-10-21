@@ -1,4 +1,6 @@
-const AUTH_SERVICE_URL = process.env.REACT_APP_AUTH_SERVICE_URL || 'http://localhost:3001';
+import config from '../config/config';
+
+const AUTH_SERVICE_URL = config.AUTH_SERVICE_URL;
 
 /**
  * Servicio de autenticación para comunicarse con el microservicio

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import CommentsModal from '../components/CommentsModal';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const Pagination = ({ currentPage, totalPages, onPageChange }) => {
   const pageNumbers = [];
@@ -37,6 +39,8 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
 
 const ComplaintsList = () => {
   const { entityId } = useParams();
+  const navigate = useNavigate();
+  const { user, isLogged, checkAuthStatus } = useAuth();
   const [complaints, setComplaints] = useState([]);
   const [entityName, setEntityName] = useState('');
   const [loading, setLoading] = useState(true);
@@ -48,6 +52,17 @@ const ComplaintsList = () => {
   const [openMenuId, setOpenMenuId] = useState(null);
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [selectedQueja, setSelectedQueja] = useState(null);
+
+  // Verificar autenticación al montar el componente
+  useEffect(() => {
+    const verifyAuth = async () => {
+      await checkAuthStatus();
+      if (!isLogged) {
+        navigate('/');
+      }
+    };
+    verifyAuth();
+  }, [isLogged, navigate, checkAuthStatus]);
 
   const getStateLabel = (state) => {
     const stateLabels = {
@@ -63,11 +78,8 @@ const ComplaintsList = () => {
   };
 
   const handleDelete = async (id) => {
-    const adminKey = window.prompt('Ingrese la clave de administrador para eliminar esta queja:');
-    
-    if (!adminKey) {
-      alert('Operación cancelada');
-      setOpenMenuId(null);
+    if (!isLogged) {
+      alert('Debe iniciar sesión para realizar esta operación');
       return;
     }
 
@@ -85,7 +97,7 @@ const ComplaintsList = () => {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            adminKey: adminKey
+            username: user
           })
         }
       );
@@ -107,11 +119,8 @@ const ComplaintsList = () => {
   };
 
   const handleUpdate = async (id) => {
-    const adminKey = window.prompt('Ingrese la clave de administrador para actualizar el estado:');
-    
-    if (!adminKey) {
-      alert('Operación cancelada');
-      setOpenMenuId(null);
+    if (!isLogged) {
+      alert('Debe iniciar sesión para realizar esta operación');
       return;
     }
 
@@ -152,7 +161,7 @@ const ComplaintsList = () => {
           },
           body: JSON.stringify({
             state: nuevoEstado,
-            adminKey: adminKey
+            username: user
           })
         }
       );
