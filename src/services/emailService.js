@@ -11,47 +11,29 @@ class EmailService {
     initializeTransporter() {
         try {
             if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-                console.warn('⚠️  Configuración de email incompleta');
+                console.warn('⚠️  Configuración de email incompleta - funcionando sin notificaciones');
                 this.initializationError = 'Variables de entorno faltantes';
                 return;
             }
 
-            console.log('🔧 Configurando transporte de email...');
-            
             this.transporter = nodemailer.createTransport({
                 host: process.env.EMAIL_HOST,
                 port: parseInt(process.env.EMAIL_PORT) || 587,
-                secure: false,
+                secure: process.env.EMAIL_SECURE === 'true',
                 auth: {
                     user: process.env.EMAIL_USER,
                     pass: process.env.EMAIL_PASSWORD
                 },
-                connectionTimeout: 30000, 
-                greetingTimeout: 15000,   
-                socketTimeout: 45000,   
-                retryDelay: 5000,
+                connectionTimeout: 20000,
+                greetingTimeout: 10000,
+                socketTimeout: 60000,
                 tls: {
-                    rejectUnauthorized: false, 
-                    ciphers: 'SSLv3'
-                },
-                pool: true,
-                maxConnections: 3,
-                maxMessages: 50
+                    rejectUnauthorized: process.env.NODE_ENV === 'production'
+                }
             });
 
             this.isConfigured = true;
-            console.log('✅ Transporte de email configurado');
-
-            setTimeout(() => {
-                this.verifyConnection().then(success => {
-                    if (success) {
-                        console.log('✅ Conexión con Gmail verificada exitosamente');
-                    } else {
-                        console.warn('⚠️  No se pudo verificar la conexión con Gmail - Los emails se intentarán enviar de todas formas');
-                    }
-                });
-            }, 2000);
-
+            console.log('✅ Servicio de email configurado correctamente');
         } catch (error) {
             console.error('❌ Error configurando servicio de email:', error.message);
             this.isConfigured = false;
@@ -81,10 +63,12 @@ class EmailService {
 
     async sendReportNotification(reportData, userInfo) {
         if (process.env.ENABLE_EMAIL_NOTIFICATIONS !== 'true') {
+            console.log('📧 Notificaciones por email deshabilitadas');
             return { success: true, skipped: true, reason: 'Notificaciones deshabilitadas' };
         }
 
         if (!this.isConfigured || !this.transporter) {
+            console.warn('⚠️  Email no configurado, saltando notificación');
             return { 
                 success: true, 
                 skipped: true, 
@@ -96,55 +80,24 @@ class EmailService {
             const emailContent = this.generateReportEmailContent(reportData, userInfo);
             
             const mailOptions = {
-                from: process.env.EMAIL_FROM,
-                to: process.env.EMAIL_TO,
+                from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+                to: process.env.EMAIL_TO || process.env.EMAIL_USER,
                 subject: emailContent.subject,
                 html: emailContent.html,
-                text: emailContent.text,
-                headers: {
-                    'X-Priority': '3',
-                    'X-Mailer': 'SistemaQuejasBoyaca'
-                }
+                text: emailContent.text
             };
 
-            console.log('📧 Intentando enviar notificación por email...');
-
-            let lastError = null;
-            for (let attempt = 1; attempt <= 3; attempt++) {
-                try {
-                    console.log(`📧 Intento ${attempt} de 3...`);
-                    
-                    const sendPromise = this.transporter.sendMail(mailOptions);
-                    const timeoutPromise = new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error(`Timeout en intento ${attempt} (30s)`)), 30000)
-                    );
-
-                    const result = await Promise.race([sendPromise, timeoutPromise]);
-                    
-                    console.log(`✅ Email enviado exitosamente en intento ${attempt}:`, result.messageId);
-                    return { 
-                        success: true, 
-                        messageId: result.messageId,
-                        timestamp: new Date().toISOString(),
-                        attempts: attempt
-                    };
-
-                } catch (error) {
-                    lastError = error;
-                    console.warn(`⚠️  Intento ${attempt} fallido:`, error.message);
-                    
-                    if (attempt < 3) {
-                        console.log(`⏳ Reintentando en 5 segundos...`);
-                        await new Promise(resolve => setTimeout(resolve, 5000));
-                    }
-                }
-            }
-
-            throw lastError;
+            const result = await this.transporter.sendMail(mailOptions);
+            
+            console.log('📧 Email enviado exitosamente:', result.messageId);
+            return { 
+                success: true, 
+                messageId: result.messageId,
+                timestamp: new Date().toISOString()
+            };
 
         } catch (error) {
-            console.error('❌ Error enviando email después de 3 intentos:', error.message);
-            
+            console.error('❌ Error enviando email (no crítico):', error.message);
             return { 
                 success: false, 
                 error: error.message,
