@@ -10,34 +10,42 @@ class EmailService {
 
     initializeTransporter() {
         try {
-            // Verificar que las variables de entorno estén configuradas
             if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-                console.warn('⚠️  Configuración de email incompleta - funcionando sin notificaciones');
+                console.warn('⚠️  Configuración de email incompleta');
                 this.initializationError = 'Variables de entorno faltantes';
                 return;
             }
 
-            // CORRECCIÓN: createTransport en lugar de createTransporter
+            console.log('🔧 Configurando transporte de email para Gmail...');
+            
             this.transporter = nodemailer.createTransport({
                 host: process.env.EMAIL_HOST,
                 port: parseInt(process.env.EMAIL_PORT) || 587,
-                secure: process.env.EMAIL_SECURE === 'true', // false para puerto 587
+                secure: false,
                 auth: {
                     user: process.env.EMAIL_USER,
                     pass: process.env.EMAIL_PASSWORD
                 },
-                // Configuraciones adicionales para mejor compatibilidad
-                connectionTimeout: 10000, // 10 segundos
-                greetingTimeout: 5000,    // 5 segundos
-                socketTimeout: 15000,     // 15 segundos
-                // Deshabilitar verificación SSL en desarrollo
+                connectionTimeout: 10000,
+                greetingTimeout: 5000,
+                socketTimeout: 10000,
                 tls: {
-                    rejectUnauthorized: process.env.NODE_ENV === 'production'
+                    rejectUnauthorized: true,
+                    ciphers: 'SSLv3'
                 }
             });
 
             this.isConfigured = true;
-            console.log('✅ Servicio de email configurado correctamente');
+            console.log('✅ Transporte de email configurado');
+
+            this.verifyConnection().then(success => {
+                if (success) {
+                    console.log('✅ Conexión con Gmail verificada exitosamente');
+                } else {
+                    console.warn('⚠️  No se pudo verificar la conexión con Gmail');
+                }
+            });
+
         } catch (error) {
             console.error('❌ Error configurando servicio de email:', error.message);
             this.isConfigured = false;
@@ -46,35 +54,34 @@ class EmailService {
     }
 
     async verifyConnection() {
-        if (!this.isConfigured) {
+        if (!this.transporter) {
             return false;
         }
 
         try {
-            // Timeout más corto para verificación
-            const verificationPromise = this.transporter.verify();
-            const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Timeout')), 5000)
-            );
-            
-            await Promise.race([verificationPromise, timeoutPromise]);
+            await this.transporter.verify();
             return true;
         } catch (error) {
             console.error('❌ Error verificando conexión de email:', error.message);
+            
+            if (error.message.includes('Invalid login')) {
+                console.error('🔐 Error de autenticación: Verifica la contraseña de aplicación');
+            } else if (error.message.includes('ECONNREFUSED')) {
+                console.error('🌐 Error de conexión: Verifica el host y puerto SMTP');
+            } else if (error.message.includes('timeout')) {
+                console.error('⏰ Timeout: Gmail no respondió a tiempo');
+            }
+            
             return false;
         }
     }
 
     async sendReportNotification(reportData, userInfo) {
-        // Si las notificaciones están deshabilitadas, salir silenciosamente
         if (process.env.ENABLE_EMAIL_NOTIFICATIONS !== 'true') {
-            console.log('📧 Notificaciones por email deshabilitadas');
             return { success: true, skipped: true, reason: 'Notificaciones deshabilitadas' };
         }
 
-        // Si el email no está configurado, salir silenciosamente
-        if (!this.isConfigured) {
-            console.warn('⚠️  Email no configurado, saltando notificación');
+        if (!this.isConfigured || !this.transporter) {
             return { 
                 success: true, 
                 skipped: true, 
@@ -87,22 +94,22 @@ class EmailService {
             const emailContent = this.generateReportEmailContent(reportData, userInfo);
             
             const mailOptions = {
-                from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
-                to: process.env.EMAIL_TO || process.env.EMAIL_USER,
+                from: process.env.EMAIL_FROM,
+                to: process.env.EMAIL_TO,
                 subject: emailContent.subject,
                 html: emailContent.html,
-                text: emailContent.text
+                text: emailContent.text,
+                headers: {
+                    'X-Priority': '3',
+                    'X-Mailer': 'SistemaQuejasBoyaca'
+                }
             };
 
-            // Enviar con timeout
-            const sendPromise = this.transporter.sendMail(mailOptions);
-            const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Email timeout')), 30000)
-            );
+            console.log('📧 Enviando notificación por email...');
 
-            const result = await Promise.race([sendPromise, timeoutPromise]);
+            const result = await this.transporter.sendMail(mailOptions);
             
-            console.log('📧 Email enviado exitosamente:', result.messageId);
+            console.log('✅ Email enviado exitosamente:', result.messageId);
             return { 
                 success: true, 
                 messageId: result.messageId,
@@ -110,8 +117,17 @@ class EmailService {
             };
 
         } catch (error) {
-            console.error('❌ Error enviando email (no crítico):', error.message);
-            // No fallar el endpoint principal, solo loggear el error
+            console.error('❌ Error enviando email:', error.message);
+            
+            if (error.message.includes('Invalid login')) {
+                console.error('🔐 ERROR CRÍTICO: Contraseña de aplicación inválida');
+                console.error('💡 SOLUCIÓN: Genera una nueva contraseña de aplicación en Google');
+            } else if (error.message.includes('Message rejected')) {
+                console.error('📭 Gmail rechazó el mensaje: Posible problema de autenticación o límite excedido');
+            } else if (error.message.includes('Quota exceeded')) {
+                console.error('📊 Límite de cuota excedido en Gmail');
+            }
+            
             return { 
                 success: false, 
                 error: error.message,
@@ -160,23 +176,11 @@ class EmailService {
                 </div>
                 
                 <div class="content">
-                    <div class="alert">
-                        <strong>⚠️ ALERTA DE SEGURIDAD:</strong> Se ha generado un reporte en el sistema.
-                    </div>
-
                     <div class="info-box">
                         <h3>📊 Información del Reporte</h3>
                         <p><strong>Tipo:</strong> ${reportData.tipo || 'Reporte General'}</p>
                         <p><strong>Fecha y Hora:</strong> ${timestamp}</p>
                         <p><strong>Total de Registros:</strong> ${reportData.totalRegistros || 'N/A'}</p>
-                    </div>
-
-                    <div class="info-box">
-                        <h3>🌐 Información de Acceso</h3>
-                        <p><strong>IP de Origen:</strong> ${userInfo.ip || 'Desconocida'}</p>
-                        <p><strong>User Agent:</strong> ${userInfo.userAgent ? userInfo.userAgent.substring(0, 100) + '...' : 'Desconocido'}</p>
-                        <p><strong>Método HTTP:</strong> ${userInfo.method || 'GET'}</p>
-                        <p><strong>URL Solicitada:</strong> ${userInfo.url || 'N/A'}</p>
                     </div>
 
                     ${reportData.estadisticas ? `
@@ -207,13 +211,6 @@ class EmailService {
                     </div>
                     ` : ''}
 
-                    <div class="info-box">
-                        <h3>⏱️ Información del Sistema</h3>
-                        <p><strong>Servidor:</strong> ${process.env.NODE_ENV || 'development'}</p>
-                        <p><strong>Versión:</strong> Sistema de Quejas Boyacá v2.0</p>
-                        <p><strong>Tiempo de Respuesta:</strong> ${reportData.responseTime || 0}ms</p>
-                    </div>
-
                     <div class="footer">
                         <p>Este es un mensaje automático del Sistema de Quejas del Departamento de Boyacá.</p>
                         <p>No responder a este correo electrónico.</p>
@@ -233,12 +230,6 @@ INFORMACIÓN DEL REPORTE:
 - Fecha y Hora: ${timestamp}
 - Total de Registros: ${reportData.totalRegistros || 'N/A'}
 
-INFORMACIÓN DE ACCESO:
-- IP de Origen: ${userInfo.ip || 'Desconocida'}
-- User Agent: ${userInfo.userAgent || 'Desconocido'}
-- Método HTTP: ${userInfo.method || 'GET'}
-- URL: ${userInfo.url || 'N/A'}
-
 ${reportData.estadisticas ? `
 ESTADÍSTICAS:
 - Total de Quejas: ${reportData.estadisticas.total_quejas || 0}
@@ -246,10 +237,6 @@ ESTADÍSTICAS:
 - Quejas Hoy: ${reportData.estadisticas.quejas_hoy || 0}
 - Quejas Este Mes: ${reportData.estadisticas.quejas_mes_actual || 0}
 ` : ''}
-
-SISTEMA:
-- Servidor: ${process.env.NODE_ENV || 'development'}
-- Tiempo de Respuesta: ${reportData.responseTime || 0}ms
 
 ---
 Sistema de Quejas - Departamento de Boyacá
