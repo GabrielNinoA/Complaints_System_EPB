@@ -97,6 +97,52 @@ class EmailService {
             };
 
         } catch (error) {
+            const isConnTimeout = (
+                (error && typeof error.message === 'string' && /timeout/i.test(error.message)) ||
+                (error && typeof error.code === 'string' && /(ETIMEDOUT|ECONNRESET|ECONNREFUSED)/i.test(error.code))
+            );
+
+            if (isConnTimeout) {
+                try {
+                    console.warn('⚠️  Conexión SMTP fallida/timeout. Intentando fallback SSL 465...');
+
+                    const altTransporter = nodemailer.createTransport({
+                        host: process.env.EMAIL_HOST,
+                        port: 465,
+                        secure: true,
+                        auth: {
+                            user: process.env.EMAIL_USER,
+                            pass: process.env.EMAIL_PASSWORD
+                        },
+                        connectionTimeout: 20000,
+                        greetingTimeout: 10000,
+                        socketTimeout: 60000,
+                        tls: {
+                            rejectUnauthorized: process.env.NODE_ENV === 'production'
+                        }
+                    });
+
+                    const emailContent = this.generateReportEmailContent(reportData, userInfo);
+                    const mailOptions = {
+                        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+                        to: process.env.EMAIL_TO || process.env.EMAIL_USER,
+                        subject: emailContent.subject,
+                        html: emailContent.html,
+                        text: emailContent.text
+                    };
+
+                    const result = await altTransporter.sendMail(mailOptions);
+                    console.log('✅ Email enviado exitosamente vía fallback SSL 465:', result.messageId);
+                    return { 
+                        success: true, 
+                        messageId: result.messageId,
+                        timestamp: new Date().toISOString()
+                    };
+                } catch (fallbackError) {
+                    console.error('❌ Fallback SSL 465 también falló:', fallbackError.message);
+                }
+            }
+
             console.error('❌ Error enviando email (no crítico):', error.message);
             return { 
                 success: false, 
