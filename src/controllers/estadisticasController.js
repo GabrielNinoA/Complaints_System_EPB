@@ -326,7 +326,9 @@ class EstadisticasController {
                 responseTime
             };
 
-            const emailNotification = this._sendEmailNotification(reportData, userInfo);
+            setImmediate(() => {
+                this._sendEmailNotification(reportData, userInfo);
+            });
             
             this._sendSuccessResponse(res, {
                 resumen: {
@@ -337,7 +339,10 @@ class EstadisticasController {
                 },
                 por_entidad: distribucion || []
             }, {
-                ...this._addNotificationInfo(emailNotification),
+                notification: {
+                    email_queued: true,
+                    background: true
+                },
                 responseTime
             });
         } catch (error) {
