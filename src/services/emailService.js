@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const dns = require('dns').promises;
 
 class EmailService {
     constructor() {
@@ -144,6 +145,86 @@ class EmailService {
             }
 
             console.error('❌ Error enviando email (no crítico):', error.message);
+
+            try {
+                const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
+                const ipv4s = await dns.resolve4(host);
+                if (Array.isArray(ipv4s) && ipv4s.length) {
+                    console.warn(`⚠️  Intentando envío vía IPv4 directo (${ipv4s.join(', ')}) con SNI ${host}...`);
+                    const emailContent = this.generateReportEmailContent(reportData, userInfo);
+                    const mailOptions = {
+                        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+                        to: process.env.EMAIL_TO || process.env.EMAIL_USER,
+                        subject: emailContent.subject,
+                        html: emailContent.html,
+                        text: emailContent.text
+                    };
+
+                    for (const ip of ipv4s) {
+                        try {
+                            const transporter465 = nodemailer.createTransport({
+                                host: ip,
+                                port: 465,
+                                secure: true,
+                                auth: {
+                                    user: process.env.EMAIL_USER, 
+                                    pass: process.env.EMAIL_PASSWORD
+                                },
+                                connectionTimeout: 20000,
+                                greetingTimeout: 10000,
+                                socketTimeout: 60000,
+                                tls: {
+                                    servername: host,
+                                    rejectUnauthorized: process.env.NODE_ENV === 'production'
+                                }
+                            });
+                            const res465 = await transporter465.sendMail(mailOptions);
+                            console.log('✅ Email enviado exitosamente vía IPv4 SSL 465:', res465.messageId);
+                            return {
+                                success: true,
+                                messageId: res465.messageId,
+                                timestamp: new Date().toISOString()
+                            };
+                        } catch (e465) {
+                            console.warn(`⚠️  Falló IPv4 ${ip} por 465: ${e465.message}`);
+                        }
+                    }
+
+                    for (const ip of ipv4s) {
+                        try {
+                            const transporter587 = nodemailer.createTransport({
+                                host: ip,
+                                port: 587,
+                                secure: false,
+                                auth: {
+                                    user: process.env.EMAIL_USER,
+                                    pass: process.env.EMAIL_PASSWORD
+                                },
+                                requireTLS: true,
+                                connectionTimeout: 20000,
+                                greetingTimeout: 10000,
+                                socketTimeout: 60000,
+                                tls: {
+                                    servername: host,
+                                    rejectUnauthorized: process.env.NODE_ENV === 'production'
+                                }
+                            });
+                            const res587 = await transporter587.sendMail(mailOptions);
+                            console.log('✅ Email enviado exitosamente vía IPv4 STARTTLS 587:', res587.messageId);
+                            return {
+                                success: true,
+                                messageId: res587.messageId,
+                                timestamp: new Date().toISOString()
+                            };
+                        } catch (e587) {
+                            console.warn(`⚠️  Falló IPv4 ${ip} por 587: ${e587.message}`);
+                        }
+                    }
+                }
+            } catch (ipv4Error) {
+                console.warn('⚠️  No fue posible enviar vía IPv4 directo:', ipv4Error.message);
+            }
+
             return { 
                 success: false, 
                 error: error.message,
