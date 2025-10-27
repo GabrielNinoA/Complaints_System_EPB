@@ -63,30 +63,26 @@ class EstadisticasController {
         return Date.now() - startTime;
     }
 
-    _sendEmailNotification(reportData, userInfo) {
+    async _sendEmailNotification(reportData, userInfo) {
         if (!emailService) {
             console.log('📧 Servicio de email no disponible, saltando notificación');
             return { success: true, skipped: true, reason: 'Servicio no disponible' };
         }
 
         try {
-            const emailPromise = emailService.sendReportNotification(reportData, userInfo);
+            const result = await emailService.sendReportNotification(reportData, userInfo);
             
-            emailPromise.then(result => {
-                if (result.success && !result.skipped) {
-                    console.log('📧 Notificación enviada exitosamente:', result.messageId);
-                } else if (result.skipped) {
-                    console.log('📧 Notificación saltada:', result.reason);
-                } else {
-                    console.warn('⚠️  Error enviando notificación (no crítico):', result.error);
-                }
-            }).catch(error => {
-                console.error('❌ Error en notificación por email (no crítico):', error.message);
-            });
+            if (result.success && !result.skipped) {
+                console.log('📧 Notificación enviada exitosamente:', result.messageId);
+            } else if (result.skipped) {
+                console.log('📧 Notificación saltada:', result.reason);
+            } else {
+                console.warn('⚠️  Error enviando notificación (no crítico):', result.error);
+            }
 
-            return { success: true, background: true };
+            return result;
         } catch (error) {
-            console.error('❌ Error configurando notificación (no crítico):', error.message);
+            console.error('❌ Error enviando notificación por email (no crítico):', error.message);
             return { success: false, error: error.message, nonCritical: true };
         }
     }
@@ -101,7 +97,7 @@ class EstadisticasController {
             
             const reportData = reportDataBuilder(data, responseTime);
             
-            const emailNotification = this._sendEmailNotification(reportData, userInfo);
+            const emailNotification = await this._sendEmailNotification(reportData, userInfo);
             
             this._sendSuccessResponse(res, data, {
                 ...this._addNotificationInfo(emailNotification),
@@ -182,7 +178,7 @@ class EstadisticasController {
                 responseTime
             };
             
-            const emailNotification = this._sendEmailNotification(reportData, userInfo);
+            const emailNotification = await this._sendEmailNotification(reportData, userInfo);
             
             this._sendSuccessResponse(res, tendencia, {
                 count: tendencia.length,
@@ -221,7 +217,7 @@ class EstadisticasController {
                 responseTime
             };
 
-            const emailNotification = this._sendEmailNotification(reportData, userInfo);
+            const emailNotification = await this._sendEmailNotification(reportData, userInfo);
 
             this._sendSuccessResponse(res, {
                 resumen: {
@@ -326,9 +322,19 @@ class EstadisticasController {
                 responseTime
             };
 
-            setImmediate(() => {
-                this._sendEmailNotification(reportData, userInfo);
-            });
+            this._sendEmailNotification(reportData, userInfo)
+                .then(result => {
+                    if (result.success && !result.skipped) {
+                        console.log('📧 Notificación de reportes enviada exitosamente');
+                    } else if (result.skipped) {
+                        console.log('📧 Notificación de reportes saltada:', result.reason);
+                    } else {
+                        console.warn('⚠️  Error enviando notificación de reportes:', result.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Error crítico enviando notificación de reportes:', error.message);
+                });
             
             this._sendSuccessResponse(res, {
                 resumen: {
@@ -365,9 +371,19 @@ class EstadisticasController {
                 responseTime
             };
 
-            this._sendEmailNotification(reportData, userInfo).catch(error => {
-                console.error('❌ Error enviando notificación de CSV (no crítico):', error.message);
-            });
+            this._sendEmailNotification(reportData, userInfo)
+                .then(result => {
+                    if (result.success && !result.skipped) {
+                        console.log('📧 Notificación de CSV enviada exitosamente');
+                    } else if (result.skipped) {
+                        console.log('📧 Notificación de CSV saltada:', result.reason);
+                    } else {
+                        console.warn('⚠️  Error enviando notificación de CSV:', result.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Error crítico enviando notificación de CSV:', error.message);
+                });
             
             res.setHeader('Content-Type', 'text/csv; charset=utf-8');
             res.setHeader('Content-Disposition', 'attachment; filename=reporte_quejas.csv');
