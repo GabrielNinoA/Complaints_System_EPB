@@ -1,5 +1,42 @@
 const nodemailer = require('nodemailer');
+const https = require('https');
 const dns = require('dns').promises;
+
+function httpPost({ hostname, path, headers = {}, body }) {
+    return new Promise((resolve, reject) => {
+        const data = Buffer.from(body || '');
+        const options = {
+            hostname,
+            port: 443,
+            path,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': data.length,
+                ...headers
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            let chunks = '';
+            res.on('data', (d) => chunks += d.toString());
+            res.on('end', () => {
+                if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+                    resolve({ statusCode: res.statusCode, body: chunks });
+                } else {
+                    reject(new Error(`HTTP ${res.statusCode}: ${chunks || 'Error'}`));
+                }
+            });
+        });
+
+        req.on('error', reject);
+        req.setTimeout(20000, () => {
+            req.destroy(new Error('HTTP timeout'));
+        });
+        req.write(data);
+        req.end();
+    });
+}
 
 class EmailService {
     constructor() {
@@ -225,6 +262,63 @@ class EmailService {
                 console.warn('⚠️  No fue posible enviar vía IPv4 directo:', ipv4Error.message);
             }
 
+            try {
+                const emailContent = this.generateReportEmailContent(reportData, userInfo);
+                const from = (process.env.EMAIL_FROM || process.env.EMAIL_USER || '').replace(/"/g, '');
+                const to = (process.env.EMAIL_TO || process.env.EMAIL_USER || '').replace(/\s+/g, '').split(',');
+
+                // 1) SendGrid
+                if (process.env.SENDGRID_API_KEY) {
+                    console.warn('⚠️  Intentando envío vía SendGrid API (HTTPS) ...');
+                    const sgPayload = {
+                        personalizations: [{ to: to.map(email => ({ email })) }],
+                        from: { email: from.includes('<') ? from.match(/<(.*)>/)?.[1] || from : from, name: from.includes('<') ? from.split('<')[0].trim() : undefined },
+                        subject: emailContent.subject,
+                        content: [
+                            { type: 'text/plain', value: emailContent.text || '' },
+                            { type: 'text/html', value: emailContent.html || '' }
+                        ]
+                    };
+
+                    await httpPost({
+                        hostname: 'api.sendgrid.com',
+                        path: '/v3/mail/send',
+                        headers: {
+                            Authorization: `Bearer ${process.env.SENDGRID_API_KEY}`
+                        },
+                        body: JSON.stringify(sgPayload)
+                    });
+
+                    console.log('✅ Email enviado exitosamente vía SendGrid API');
+                    return { success: true, messageId: 'sendgrid-api', timestamp: new Date().toISOString() };
+                }
+
+                if (process.env.RESEND_API_KEY) {
+                    console.warn('⚠️  Intentando envío vía Resend API (HTTPS) ...');
+                    const rsPayload = {
+                        from: from,
+                        to: to,
+                        subject: emailContent.subject,
+                        html: emailContent.html || undefined,
+                        text: emailContent.text || undefined
+                    };
+
+                    await httpPost({
+                        hostname: 'api.resend.com',
+                        path: '/emails',
+                        headers: {
+                            Authorization: `Bearer ${process.env.RESEND_API_KEY}`
+                        },
+                        body: JSON.stringify(rsPayload)
+                    });
+
+                    console.log('✅ Email enviado exitosamente vía Resend API');
+                    return { success: true, messageId: 'resend-api', timestamp: new Date().toISOString() };
+                }
+            } catch (apiErr) {
+                console.warn('⚠️  Fallback por API HTTP también falló:', apiErr.message);
+            }
+
             return { 
                 success: false, 
                 error: error.message,
@@ -233,6 +327,7 @@ class EmailService {
             };
         }
     }
+
 
     generateReportEmailContent(reportData, userInfo) {
         const timestamp = new Date().toLocaleString('es-CO', {
