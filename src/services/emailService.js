@@ -16,7 +16,7 @@ class EmailService {
                 return;
             }
 
-            console.log('🔧 Configurando transporte de email para Gmail...');
+            console.log('🔧 Configurando transporte de email...');
             
             this.transporter = nodemailer.createTransport({
                 host: process.env.EMAIL_HOST,
@@ -26,25 +26,31 @@ class EmailService {
                     user: process.env.EMAIL_USER,
                     pass: process.env.EMAIL_PASSWORD
                 },
-                connectionTimeout: 10000,
-                greetingTimeout: 5000,
-                socketTimeout: 10000,
+                connectionTimeout: 30000, 
+                greetingTimeout: 15000,   
+                socketTimeout: 45000,   
+                retryDelay: 5000,
                 tls: {
-                    rejectUnauthorized: true,
+                    rejectUnauthorized: false, 
                     ciphers: 'SSLv3'
-                }
+                },
+                pool: true,
+                maxConnections: 3,
+                maxMessages: 50
             });
 
             this.isConfigured = true;
             console.log('✅ Transporte de email configurado');
 
-            this.verifyConnection().then(success => {
-                if (success) {
-                    console.log('✅ Conexión con Gmail verificada exitosamente');
-                } else {
-                    console.warn('⚠️  No se pudo verificar la conexión con Gmail');
-                }
-            });
+            setTimeout(() => {
+                this.verifyConnection().then(success => {
+                    if (success) {
+                        console.log('✅ Conexión con Gmail verificada exitosamente');
+                    } else {
+                        console.warn('⚠️  No se pudo verificar la conexión con Gmail - Los emails se intentarán enviar de todas formas');
+                    }
+                });
+            }, 2000);
 
         } catch (error) {
             console.error('❌ Error configurando servicio de email:', error.message);
@@ -59,19 +65,16 @@ class EmailService {
         }
 
         try {
-            await this.transporter.verify();
+            const verificationPromise = this.transporter.verify();
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Timeout de verificación (20s)')), 20000)
+            );
+            
+            await Promise.race([verificationPromise, timeoutPromise]);
+            console.log('✅ Conexión de email verificada');
             return true;
         } catch (error) {
             console.error('❌ Error verificando conexión de email:', error.message);
-            
-            if (error.message.includes('Invalid login')) {
-                console.error('🔐 Error de autenticación: Verifica la contraseña de aplicación');
-            } else if (error.message.includes('ECONNREFUSED')) {
-                console.error('🌐 Error de conexión: Verifica el host y puerto SMTP');
-            } else if (error.message.includes('timeout')) {
-                console.error('⏰ Timeout: Gmail no respondió a tiempo');
-            }
-            
             return false;
         }
     }
@@ -85,8 +88,7 @@ class EmailService {
             return { 
                 success: true, 
                 skipped: true, 
-                reason: 'Email no configurado',
-                error: this.initializationError 
+                reason: 'Email no configurado'
             };
         }
 
@@ -105,28 +107,43 @@ class EmailService {
                 }
             };
 
-            console.log('📧 Enviando notificación por email...');
+            console.log('📧 Intentando enviar notificación por email...');
 
-            const result = await this.transporter.sendMail(mailOptions);
-            
-            console.log('✅ Email enviado exitosamente:', result.messageId);
-            return { 
-                success: true, 
-                messageId: result.messageId,
-                timestamp: new Date().toISOString()
-            };
+            let lastError = null;
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    console.log(`📧 Intento ${attempt} de 3...`);
+                    
+                    const sendPromise = this.transporter.sendMail(mailOptions);
+                    const timeoutPromise = new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error(`Timeout en intento ${attempt} (30s)`)), 30000)
+                    );
+
+                    const result = await Promise.race([sendPromise, timeoutPromise]);
+                    
+                    console.log(`✅ Email enviado exitosamente en intento ${attempt}:`, result.messageId);
+                    return { 
+                        success: true, 
+                        messageId: result.messageId,
+                        timestamp: new Date().toISOString(),
+                        attempts: attempt
+                    };
+
+                } catch (error) {
+                    lastError = error;
+                    console.warn(`⚠️  Intento ${attempt} fallido:`, error.message);
+                    
+                    if (attempt < 3) {
+                        console.log(`⏳ Reintentando en 5 segundos...`);
+                        await new Promise(resolve => setTimeout(resolve, 5000));
+                    }
+                }
+            }
+
+            throw lastError;
 
         } catch (error) {
-            console.error('❌ Error enviando email:', error.message);
-            
-            if (error.message.includes('Invalid login')) {
-                console.error('🔐 ERROR CRÍTICO: Contraseña de aplicación inválida');
-                console.error('💡 SOLUCIÓN: Genera una nueva contraseña de aplicación en Google');
-            } else if (error.message.includes('Message rejected')) {
-                console.error('📭 Gmail rechazó el mensaje: Posible problema de autenticación o límite excedido');
-            } else if (error.message.includes('Quota exceeded')) {
-                console.error('📊 Límite de cuota excedido en Gmail');
-            }
+            console.error('❌ Error enviando email después de 3 intentos:', error.message);
             
             return { 
                 success: false, 
@@ -165,7 +182,6 @@ class EmailService {
                 .stats-table th, .stats-table td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #ddd; }
                 .stats-table th { background-color: #2c5aa0; color: white; }
                 .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
-                .alert { background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 4px; margin: 10px 0; }
             </style>
         </head>
         <body>
@@ -181,39 +197,23 @@ class EmailService {
                         <p><strong>Tipo:</strong> ${reportData.tipo || 'Reporte General'}</p>
                         <p><strong>Fecha y Hora:</strong> ${timestamp}</p>
                         <p><strong>Total de Registros:</strong> ${reportData.totalRegistros || 'N/A'}</p>
+                        <p><strong>IP de Origen:</strong> ${userInfo.ip || 'Desconocida'}</p>
                     </div>
 
                     ${reportData.estadisticas ? `
                     <div class="info-box">
-                        <h3>📈 Estadísticas del Reporte</h3>
+                        <h3>📈 Estadísticas</h3>
                         <table class="stats-table">
-                            <tr>
-                                <th>Métrica</th>
-                                <th>Valor</th>
-                            </tr>
-                            <tr>
-                                <td>Total de Quejas</td>
-                                <td>${reportData.estadisticas.total_quejas || 0}</td>
-                            </tr>
-                            <tr>
-                                <td>Total de Entidades</td>
-                                <td>${reportData.estadisticas.total_entidades || 0}</td>
-                            </tr>
-                            <tr>
-                                <td>Quejas Hoy</td>
-                                <td>${reportData.estadisticas.quejas_hoy || 0}</td>
-                            </tr>
-                            <tr>
-                                <td>Quejas Este Mes</td>
-                                <td>${reportData.estadisticas.quejas_mes_actual || 0}</td>
-                            </tr>
+                            <tr><td>Total Quejas:</td><td>${reportData.estadisticas.total_quejas || 0}</td></tr>
+                            <tr><td>Total Entidades:</td><td>${reportData.estadisticas.total_entidades || 0}</td></tr>
+                            <tr><td>Quejas Hoy:</td><td>${reportData.estadisticas.quejas_hoy || 0}</td></tr>
+                            <tr><td>Quejas Mes:</td><td>${reportData.estadisticas.quejas_mes_actual || 0}</td></tr>
                         </table>
                     </div>
                     ` : ''}
 
                     <div class="footer">
-                        <p>Este es un mensaje automático del Sistema de Quejas del Departamento de Boyacá.</p>
-                        <p>No responder a este correo electrónico.</p>
+                        <p>Sistema de Quejas - Departamento de Boyacá</p>
                         <p>Generado el ${timestamp}</p>
                     </div>
                 </div>
@@ -224,23 +224,18 @@ class EmailService {
 
         const text = `
 REPORTE GENERADO - Sistema de Quejas Boyacá
-
-INFORMACIÓN DEL REPORTE:
-- Tipo: ${reportData.tipo || 'Reporte General'}
-- Fecha y Hora: ${timestamp}
-- Total de Registros: ${reportData.totalRegistros || 'N/A'}
+Tipo: ${reportData.tipo || 'Reporte General'}
+Fecha: ${timestamp}
+Registros: ${reportData.totalRegistros || 'N/A'}
+IP: ${userInfo.ip || 'Desconocida'}
 
 ${reportData.estadisticas ? `
 ESTADÍSTICAS:
-- Total de Quejas: ${reportData.estadisticas.total_quejas || 0}
-- Total de Entidades: ${reportData.estadisticas.total_entidades || 0}
+- Total Quejas: ${reportData.estadisticas.total_quejas || 0}
+- Total Entidades: ${reportData.estadisticas.total_entidades || 0}
 - Quejas Hoy: ${reportData.estadisticas.quejas_hoy || 0}
-- Quejas Este Mes: ${reportData.estadisticas.quejas_mes_actual || 0}
+- Quejas Mes: ${reportData.estadisticas.quejas_mes_actual || 0}
 ` : ''}
-
----
-Sistema de Quejas - Departamento de Boyacá
-Generado automáticamente el ${timestamp}
         `;
 
         return { subject, html, text };
@@ -250,8 +245,7 @@ Generado automáticamente el ${timestamp}
         if (!this.isConfigured) {
             return { 
                 success: false, 
-                error: 'Email no configurado',
-                details: this.initializationError
+                error: 'Email no configurado'
             };
         }
 
