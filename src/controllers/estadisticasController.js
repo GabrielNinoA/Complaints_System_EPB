@@ -63,7 +63,7 @@ class EstadisticasController {
         return Date.now() - startTime;
     }
 
-    async _sendEmailNotification(reportData, userInfo) {
+    _sendEmailNotification(reportData, userInfo) {
         if (!emailService) {
             console.log('📧 Servicio de email no disponible, saltando notificación');
             return { success: true, skipped: true, reason: 'Servicio no disponible' };
@@ -101,7 +101,7 @@ class EstadisticasController {
             
             const reportData = reportDataBuilder(data, responseTime);
             
-            const emailNotification = await this._sendEmailNotification(reportData, userInfo);
+            const emailNotification = this._sendEmailNotification(reportData, userInfo);
             
             this._sendSuccessResponse(res, data, {
                 ...this._addNotificationInfo(emailNotification),
@@ -182,7 +182,7 @@ class EstadisticasController {
                 responseTime
             };
             
-            const emailNotification = await this._sendEmailNotification(reportData, userInfo);
+            const emailNotification = this._sendEmailNotification(reportData, userInfo);
             
             this._sendSuccessResponse(res, tendencia, {
                 count: tendencia.length,
@@ -221,7 +221,7 @@ class EstadisticasController {
                 responseTime
             };
 
-            const emailNotification = await this._sendEmailNotification(reportData, userInfo);
+            const emailNotification = this._sendEmailNotification(reportData, userInfo);
 
             this._sendSuccessResponse(res, {
                 resumen: {
@@ -326,7 +326,7 @@ class EstadisticasController {
                 responseTime
             };
 
-            const emailNotification = await this._sendEmailNotification(reportData, userInfo);
+            const emailNotification = this._sendEmailNotification(reportData, userInfo);
             
             this._sendSuccessResponse(res, {
                 resumen: {
