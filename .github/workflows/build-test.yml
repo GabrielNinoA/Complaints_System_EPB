@@ -37,8 +37,30 @@ jobs:
 
       - name: Install dependencies (Backend)
         run: npm install
+
+      - name: Wait for MySQL to be ready
+        run: |
+          for i in {1..30}; do
+            if mysqladmin ping -h"127.0.0.1" -uroot -proot --silent; then
+              echo "MySQL is ready!"
+              break
+            fi
+            echo "Waiting for MySQL... ($i/30)"
+            sleep 2
+          done
+        
+      - name: Initialize Database
+        run: |
+          mysql -h 127.0.0.1 -uroot -proot complaints_boyaca < database-setup-test.sql
         
       - name: Run tests (Backend) 
+        env:
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_USER: complaints_user
+          DB_PASSWORD: secure_password_2024
+          DB_NAME: complaints_boyaca
+          DB_PORT: 3306
         run: npm test
 
       - name: Run build check (Backend)
