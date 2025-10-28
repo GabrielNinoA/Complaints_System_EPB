@@ -95,6 +95,8 @@ const ComplaintsList = () => {
           headers: {
             'Content-Type': 'application/json'
           },
+          // Incluir cookies de sesión para operaciones autenticadas
+          credentials: 'include',
           body: JSON.stringify({
             username: user
           })
@@ -158,6 +160,8 @@ const ComplaintsList = () => {
           headers: {
             'Content-Type': 'application/json'
           },
+          // Incluir cookies de sesión para operaciones autenticadas
+          credentials: 'include',
           body: JSON.stringify({
             state: nuevoEstado,
             username: user
@@ -191,8 +195,8 @@ const ComplaintsList = () => {
     try {
       setLoading(true);
       
-      const entityResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/entidades`);
-      const entityData = await entityResponse.json();
+  const entityResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/entidades`, { credentials: 'include' });
+  const entityData = await entityResponse.json();
       
       if (entityData.success) {
         const entity = entityData.data.find(e => e.id === parseInt(entityId));
@@ -200,7 +204,11 @@ const ComplaintsList = () => {
       }
 
       const complaintsResponse = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/quejas/entidad/${entityId}?limit=${complaintsPerPage}&offset=${(currentPage - 1) * complaintsPerPage}`
+        `${process.env.REACT_APP_API_URL}/api/quejas/entidad/${entityId}?limit=${complaintsPerPage}&offset=${(currentPage - 1) * complaintsPerPage}`,
+        {
+          // Algunas APIs pueden requerir la cookie de sesión para ver datos específicos
+          credentials: 'include'
+        }
       );
       const complaintsData = await complaintsResponse.json();
       

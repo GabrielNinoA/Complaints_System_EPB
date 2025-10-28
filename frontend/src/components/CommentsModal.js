@@ -13,7 +13,11 @@ const CommentsModal = ({ quejaId, quejaTitle, onClose }) => {
     try {
       setLoading(true);
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/quejas/${quejaId}/comentarios`
+        `${process.env.REACT_APP_API_URL}/api/quejas/${quejaId}/comentarios`,
+        {
+          // Enviar cookies de sesión para operaciones autenticadas
+          credentials: 'include'
+        }
       );
       const data = await response.json();
       
@@ -57,6 +61,8 @@ const CommentsModal = ({ quejaId, quejaTitle, onClose }) => {
           headers: {
             'Content-Type': 'application/json',
           },
+          // Incluir cookie de sesión (si el servidor usa sesiones)
+          credentials: 'include',
           body: JSON.stringify({
             queja_id: quejaId,
             texto: nuevoComentario.trim()
@@ -99,6 +105,9 @@ const CommentsModal = ({ quejaId, quejaTitle, onClose }) => {
         `${process.env.REACT_APP_API_URL}/api/comentarios/${id}`,
         {
           method: 'DELETE'
+          ,
+          // Incluir cookie de sesión para autorizar la eliminación
+          credentials: 'include'
         }
       );
 
@@ -146,6 +155,8 @@ const CommentsModal = ({ quejaId, quejaTitle, onClose }) => {
           headers: {
             'Content-Type': 'application/json',
           },
+          // Incluir cookie de sesión para autorizar la edición
+          credentials: 'include',
           body: JSON.stringify({
             texto: editText.trim()
           })

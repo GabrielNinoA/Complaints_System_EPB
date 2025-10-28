@@ -75,6 +75,8 @@ const WriteComplaint = () => {
       headers: {
         'Content-Type': 'application/json',
       },
+      // Enviar cookie de sesión si corresponde (autenticación basada en sesión)
+      credentials: 'include',
       body: JSON.stringify(complaintData)
     })
     .then(response => response.json())
