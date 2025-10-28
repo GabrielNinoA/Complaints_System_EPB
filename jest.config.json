@@ -1,5 +1,6 @@
 {
   "testEnvironment": "node",
+  "setupFilesAfterEnv": ["<rootDir>/tests/setup.js"],
   "testMatch": [
     "**/tests/**/*.test.js"
   ],
@@ -14,6 +15,6 @@
     "lcov",
     "html"
   ],
-  "testTimeout": 30000,
+  "testTimeout": 10000,
   "verbose": true
 }
