@@ -1,64 +1,50 @@
 const rateLimit = require('express-rate-limit');
 
-// Rate limiting global para toda la API
-const globalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutos
-    max: process.env.NODE_ENV === 'production' ? 500 : 1000, // Más restrictivo en producción
-    message: {
-        success: false,
-        message: 'Demasiadas solicitudes desde esta IP. Intente de nuevo más tarde.',
-        retryAfter: '15 minutes'
-    },
-    standardHeaders: true,
-    legacyHeaders: false,
-    handler: (req, res) => {
-        console.log(`🚫 Rate limit alcanzado para IP: ${req.ip} - ${req.originalUrl}`);
-        res.status(429).json({
-            success: false,
-            message: 'Demasiadas solicitudes desde esta IP. Intente de nuevo más tarde.',
-            retryAfter: '15 minutes',
-            timestamp: new Date().toISOString()
-        });
-    }
-});
-
-// Rate limiting específico para crear quejas (más restrictivo)
-const complaintsLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutos
-    max: process.env.NODE_ENV === 'production' ? 10 : 50, // Muy restrictivo en producción
-    message: {
-        success: false,
-        message: 'Límite de quejas alcanzado. Puede enviar máximo 10 quejas cada 15 minutos.',
-        retryAfter: '15 minutes'
-    },
-    standardHeaders: true,
-    legacyHeaders: false,
-    handler: (req, res) => {
-        console.log(`🚫 Límite de quejas alcanzado para IP: ${req.ip}`);
-        res.status(429).json({
-            success: false,
-            message: 'Límite de quejas alcanzado. Puede enviar máximo 10 quejas cada 15 minutos.',
-            retryAfter: '15 minutes',
-            timestamp: new Date().toISOString()
-        });
-    }
-});
-
-// Rate limiting para consultas (más permisivo)
+// Rate limiter para consultas GET
 const consultLimiter = rateLimit({
     windowMs: 5 * 60 * 1000, // 5 minutos
-    max: process.env.NODE_ENV === 'production' ? 100 : 200,
+    max: 500, // 500 peticiones por ventana
     message: {
         success: false,
-        message: 'Demasiadas consultas. Intente de nuevo en unos minutos.',
-        retryAfter: '5 minutes'
+        message: 'Demasiadas consultas, por favor espera un momento.'
     },
     standardHeaders: true,
     legacyHeaders: false
 });
 
+// Rate limiter para creación de quejas y comentarios
+const complaintsLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutos
+    max: 100, // 100 creaciones por ventana
+    message: {
+        success: false,
+        message: 'Has alcanzado el límite de quejas. Por favor intenta más tarde.'
+    },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+// Rate limiter global - MUY permisivo (solo para casos extremos)
+const globalLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000, // 1 minuto
+    max: 1000, // 1000 peticiones por minuto
+    message: {
+        success: false,
+        message: 'Límite de peticiones excedido temporalmente.'
+    },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+const adminLimiter = (req, res, next) => {
+    // Bypass completo para operaciones administrativas
+    console.log(`🔓 [ADMIN] ${req.method} ${req.path} - Sin límite`);
+    next();
+};
+
 module.exports = {
     globalLimiter,
+    consultLimiter,
     complaintsLimiter,
-    consultLimiter
+    adminLimiter
 };

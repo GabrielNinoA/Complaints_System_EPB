@@ -1,91 +1,120 @@
 const dbService = require('../services/database');
 const { QueryValidator } = require('../validators');
+
 class EntidadesController {
+    constructor() {
+        this.getAllEntidades = this.getAllEntidades.bind(this);
+        this.getEntidadById = this.getEntidadById.bind(this);
+        this.searchEntidadByNombre = this.searchEntidadByNombre.bind(this);
+    }
+     
+    _sendSuccessResponse(res, data, extras = {}) {
+        res.json({
+            success: true,
+            data,
+            ...extras,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    _sendErrorResponse(res, message, statusCode = 500, error = null) {
+        console.error(`❌ ${message}:`, error?.message || '');
+        if (error?.stack) console.error('❌ Stack trace:', error.stack);
+        
+        res.status(statusCode).json({
+            success: false,
+            message,
+            error: process.env.NODE_ENV === 'development' ? error?.message : undefined,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    _sendValidationErrorResponse(res, message, errors = []) {
+        res.status(400).json({
+            success: false,
+            message,
+            errors,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    _getResponseTime(startTime) {
+        return Date.now() - startTime;
+    }
+
+    _validateIdParameter(id) {
+        return QueryValidator.validateId(id);
+    }
+
+    _validateNombreParameter(nombre) {
+        if (!nombre || nombre.trim().length < 2) {
+            return {
+                isValid: false,
+                message: 'El nombre debe tener al menos 2 caracteres'
+            };
+        }
+        return {
+            isValid: true,
+            value: nombre.trim()
+        };
+    }
+
     async getAllEntidades(req, res) {
+        const startTime = Date.now();
+        
         try {
-            const startTime = Date.now();
             const entidades = await dbService.getAllEntidades();
 
-            res.json({
-                success: true,
-                data: entidades,
+            this._sendSuccessResponse(res, entidades, {
                 count: entidades.length,
-                timestamp: new Date().toISOString(),
-                responseTime: Date.now() - startTime
+                responseTime: this._getResponseTime(startTime)
             });
         } catch (error) {
-            res.status(500).json({
-                success: false,
-                message: 'Error obteniendo entidades',
-                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-                timestamp: new Date().toISOString()
-            });
+            this._sendErrorResponse(res, 'Error obteniendo entidades', 500, error);
         }
     }
+
     async getEntidadById(req, res) {
+        const startTime = Date.now();
+        
         try {
-            const startTime = Date.now();
-
-            // Validar ID
-            const validation = QueryValidator.validateId(req.params.id);
+            const validation = this._validateIdParameter(req.params.id);
             if (!validation.isValid) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'ID inválido',
-                    errors: validation.errors
-                });
+                return this._sendValidationErrorResponse(res, 'ID inválido', validation.errors);
             }
-            const entidad = await dbService.getEntidadById(validation.id);
 
+            const entidad = await dbService.getEntidadById(validation.id);
             if (!entidad) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Entidad no encontrada'
-                });
+                return this._sendErrorResponse(res, 'Entidad no encontrada', 404);
             }
-            res.json({
-                success: true,
-                data: entidad,
-                timestamp: new Date().toISOString(),
-                responseTime: Date.now() - startTime
+
+            this._sendSuccessResponse(res, entidad, {
+                responseTime: this._getResponseTime(startTime)
             });
         } catch (error) {
-            console.error('❌ Error obteniendo entidad:', error.message);
-            res.status(500).json({
-                success: false,
-                message: 'Error obteniendo entidad',
-                timestamp: new Date().toISOString()
-            });
+            this._sendErrorResponse(res, 'Error obteniendo entidad', 500, error);
         }
     }
+
     async searchEntidadByNombre(req, res) {
+        const startTime = Date.now();
+        
         try {
-            const startTime = Date.now();
-            const { nombre } = req.query;
-
-            if (!nombre || nombre.trim().length < 2) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'El nombre debe tener al menos 2 caracteres'
-                });
+            const nombre = this._validateNombreParameter(req.query.nombre);
+            if (!nombre.isValid) {
+                return this._sendValidationErrorResponse(res, nombre.message);
             }
-            const entidad = await dbService.getEntidadByNombre(nombre.trim());
 
-            res.json({
-                success: true,
-                data: entidad,
+            const entidad = await dbService.getEntidadByNombre(nombre.value);
+
+            this._sendSuccessResponse(res, entidad, {
                 found: !!entidad,
-                timestamp: new Date().toISOString(),
-                responseTime: Date.now() - startTime
+                responseTime: this._getResponseTime(startTime)
             });
         } catch (error) {
-            console.error('❌ Error buscando entidad:', error.message);
-            res.status(500).json({
-                success: false,
-                message: 'Error buscando entidad',
-                timestamp: new Date().toISOString()
-            });
+            this._sendErrorResponse(res, 'Error buscando entidad', 500, error);
         }
     }
 }
+
 module.exports = new EntidadesController();

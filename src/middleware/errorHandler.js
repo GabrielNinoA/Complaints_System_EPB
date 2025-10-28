@@ -1,6 +1,86 @@
-const { errorLogger } = require('./logger');
 
-// Middleware para manejar rutas no encontradas
+function logError(error, req, context = '') {
+    const timestamp = new Date().toISOString();
+    const method = req?.method || 'UNKNOWN';
+    const path = req?.originalUrl || req?.url || 'UNKNOWN';
+    const ip = req?.ip || req?.connection?.remoteAddress || 'UNKNOWN';
+    
+    console.error('\n' + '='.repeat(80));
+    console.error(`[${timestamp}] ERROR: ${method} ${path} - IP: ${ip}`);
+    if (context) console.error(`Context: ${context}`);
+    console.error(`Message: ${error.message}`);
+    
+    if (process.env.NODE_ENV === 'development') {
+        console.error('Stack:', error.stack);
+    }
+    
+    console.error('='.repeat(80) + '\n');
+}
+
+
+function generateErrorId() {
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substring(2, 7);
+    return `${timestamp}-${random}`;
+}
+
+
+function getErrorMessage(error, statusCode) {
+    if (process.env.NODE_ENV === 'development') {
+        return error.message;
+    }
+
+    const messages = {
+        400: 'Solicitud inválida',
+        401: 'No autorizado',
+        403: 'Acceso prohibido',
+        404: 'Recurso no encontrado',
+        429: 'Demasiadas solicitudes',
+        503: 'Servicio temporalmente no disponible'
+    };
+
+    return messages[statusCode] || 'Error interno del servidor';
+}
+
+
+function getStatusCode(error) {
+    if (error.status || error.statusCode) {
+        return error.status || error.statusCode;
+    }
+
+    const errorCodeMap = {
+        'ECONNREFUSED': 503,
+        'ETIMEDOUT': 504,
+        'ENOTFOUND': 503,
+        'ER_ACCESS_DENIED_ERROR': 503,
+        'ER_BAD_DB_ERROR': 503
+    };
+
+    if (error.code && errorCodeMap[error.code]) {
+        return errorCodeMap[error.code];
+    }
+
+    const errorNameMap = {
+        'ValidationError': 400,
+        'UnauthorizedError': 401,
+        'ForbiddenError': 403,
+        'NotFoundError': 404
+    };
+
+    if (error.name && errorNameMap[error.name]) {
+        return errorNameMap[error.name];
+    }
+
+    return 500;
+}
+
+
+const asyncHandler = (fn) => (req, res, next) => {
+    console.log('🔍 [ASYNC] AsyncHandler ejecutándose para:', req.path);
+    Promise.resolve(fn(req, res, next)).catch(next);
+};
+
+
 const notFoundHandler = (req, res) => {
     const isApiRequest = req.originalUrl.startsWith('/api/');
     
@@ -14,38 +94,22 @@ const notFoundHandler = (req, res) => {
         });
     }
     
-    // Para requests no-API, devolver respuesta simple
     res.status(404).json({
         error: 'Página no encontrada',
         status: 404
     });
 };
 
-// Middleware para manejo global de errores
-const errorHandler = (error, req, res, next) => {
-    // Log del error
-    errorLogger(error, req, res, () => {});
 
-    // Si ya se enviaron headers, delegar al error handler por defecto
+const errorHandler = (error, req, res, next) => {
     if (res.headersSent) {
         return next(error);
     }
 
-    // Determinar el código de estado
-    let statusCode = error.status || error.statusCode || 500;
-    
-    // Manejar errores específicos
-    if (error.code === 'ECONNREFUSED') {
-        statusCode = 503;
-    } else if (error.code === 'ER_ACCESS_DENIED_ERROR') {
-        statusCode = 503;
-    } else if (error.name === 'ValidationError') {
-        statusCode = 400;
-    } else if (error.name === 'UnauthorizedError') {
-        statusCode = 401;
-    }
+    logError(error, req, 'Global Error Handler');
 
-    // Preparar respuesta de error
+    const statusCode = getStatusCode(error);
+
     const errorResponse = {
         success: false,
         message: getErrorMessage(error, statusCode),
@@ -54,13 +118,12 @@ const errorHandler = (error, req, res, next) => {
         method: req.method
     };
 
-    // En desarrollo, incluir stack trace
     if (process.env.NODE_ENV === 'development') {
         errorResponse.stack = error.stack;
         errorResponse.details = error.message;
+        if (error.code) errorResponse.code = error.code;
     }
 
-    // En producción, incluir ID de error para tracking
     if (process.env.NODE_ENV === 'production') {
         errorResponse.errorId = generateErrorId();
     }
@@ -68,46 +131,12 @@ const errorHandler = (error, req, res, next) => {
     res.status(statusCode).json(errorResponse);
 };
 
-// Función para obtener mensaje de error apropiado
-function getErrorMessage(error, statusCode) {
-    if (process.env.NODE_ENV === 'development') {
-        return error.message;
-    }
-
-    // Mensajes de error seguros para producción
-    switch (statusCode) {
-        case 400:
-            return 'Solicitud inválida';
-        case 401:
-            return 'No autorizado';
-        case 403:
-            return 'Acceso prohibido';
-        case 404:
-            return 'Recurso no encontrado';
-        case 429:
-            return 'Demasiadas solicitudes';
-        case 503:
-            return 'Servicio temporalmente no disponible';
-        default:
-            return 'Error interno del servidor';
-    }
-}
-
-// Función para generar ID único de error
-function generateErrorId() {
-    const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substring(2, 7);
-    return `${timestamp}-${random}`;
-}
-
-// Middleware para capturar errores asíncronos
-const asyncHandler = (fn) => (req, res, next) => {
-    console.log('🔍 [ASYNC] AsyncHandler ejecutándose para:', req.path);
-    Promise.resolve(fn(req, res, next)).catch(next);
-};
-
 module.exports = {
+    asyncHandler,
     notFoundHandler,
     errorHandler,
-    asyncHandler
+    logError, 
+    generateErrorId,
+    getErrorMessage,
+    getStatusCode
 };
