@@ -10,28 +10,28 @@ const CommentsModal = ({ quejaId, quejaTitle, onClose }) => {
   const [editText, setEditText] = useState('');
 
   useEffect(() => {
+    const cargarComentarios = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(
+          `${process.env.REACT_APP_API_URL}/api/quejas/${quejaId}/comentarios`
+        );
+        const data = await response.json();
+        
+        if (data.success) {
+          setComentarios(data.data);
+        }
+      } catch (error) {
+        console.error('Error cargando comentarios:', error);
+        setMessage('Error al cargar comentarios');
+        setMessageType('error');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     cargarComentarios();
   }, [quejaId]);
-
-  const cargarComentarios = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/quejas/${quejaId}/comentarios`
-      );
-      const data = await response.json();
-      
-      if (data.success) {
-        setComentarios(data.data);
-      }
-    } catch (error) {
-      console.error('Error cargando comentarios:', error);
-      setMessage('Error al cargar comentarios');
-      setMessageType('error');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleAgregarComentario = async () => {
     if (!nuevoComentario.trim() || nuevoComentario.trim().length < 5) {

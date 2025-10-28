@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import CommentsModal from '../components/CommentsModal';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -187,7 +187,7 @@ const ComplaintsList = () => {
     setOpenMenuId(null);
   };
 
-  const fetchComplaints = async () => {
+  const fetchComplaints = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -219,13 +219,13 @@ const ComplaintsList = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [entityId, currentPage, complaintsPerPage]);
 
   useEffect(() => {
     if (entityId) {
       fetchComplaints();
     }
-  }, [entityId, currentPage]);
+  }, [entityId, fetchComplaints]);
   
   const handlePageChange = (pageNumber) => {
     setCurrentPage(pageNumber);
