@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 const CommentsModal = ({ quejaId, quejaTitle, onClose }) => {
   const [comentarios, setComentarios] = useState([]);
@@ -9,29 +9,29 @@ const CommentsModal = ({ quejaId, quejaTitle, onClose }) => {
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState('');
 
-  useEffect(() => {
-    const cargarComentarios = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(
-          `${process.env.REACT_APP_API_URL}/api/quejas/${quejaId}/comentarios`
-        );
-        const data = await response.json();
-        
-        if (data.success) {
-          setComentarios(data.data);
-        }
-      } catch (error) {
-        console.error('Error cargando comentarios:', error);
-        setMessage('Error al cargar comentarios');
-        setMessageType('error');
-      } finally {
-        setLoading(false);
+  const cargarComentarios = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/quejas/${quejaId}/comentarios`
+      );
+      const data = await response.json();
+      
+      if (data.success) {
+        setComentarios(data.data);
       }
-    };
-
-    cargarComentarios();
+    } catch (error) {
+      console.error('Error cargando comentarios:', error);
+      setMessage('Error al cargar comentarios');
+      setMessageType('error');
+    } finally {
+      setLoading(false);
+    }
   }, [quejaId]);
+
+  useEffect(() => {
+    cargarComentarios();
+  }, [cargarComentarios]);
 
   const handleAgregarComentario = async () => {
     if (!nuevoComentario.trim() || nuevoComentario.trim().length < 5) {
