@@ -1,0 +1,138 @@
+# Registro de Cambios
+
+## [Versión Mayor de Desarrollo] - Octubre 2025
+
+Esta versión incluye la integración de un nuevo microservicio de autenticación, refactorizaciones extensas de la arquitectura de *backend* (servicios/repositorios/controladores), nuevas funcionalidades clave para la gestión de quejas, y la mejora de la estabilidad general con la adición de pruebas y correcciones de *bugs*.
+
+---
+
+### 🚀 Nuevas Funcionalidades (Features)
+
+| Hash | Fecha | Descripción del Commit |
+| :--- | :--- | :--- |
+| b7a0079 | 2025-10-20 | Modificación de la autenticación en `ComplaintList.js` y adición de la capa en `App.js`. |
+| 937df11 | 2025-10-20 | Adición de componentes y estilos para el *frontend* del sistema de autenticación. |
+| 237489f | 2025-10-20 | Adición de `authContext.js` para usar `LocalStorage`. |
+| 487198c | 2025-10-20 | Adición de lógica al *frontend* con `authService.js`. |
+| bb31a01 | 2025-10-20 | Cambio de la antigua validación de administrador a la validación por microservicio. |
+| a663b8e | 2025-10-20 | Adición de `authValidationService`. |
+| 70bae6d | 2025-10-09 | Implementación completa de la función de **actualización de estado** de la queja. |
+| 354784c | 2025-10-03 | Adición del **módulo de comentarios** con *controller*, *modal*, rutas y actualizaciones de DB. |
+| 416f3d0 | 2025-09-30 | Adición de vista de estado en el título de la queja en el *frontend*. |
+| 1198e7d | 2025-09-30 | Adición de cambios en el *frontend* con el método `handleUpdate` y el botón de actualización. |
+| 0567211 | 2025-09-30 | Adición del método `updatestate` en la base de datos y lógica de clave de administrador (`adminkey`) en `updateQuejaStatus` en `quejasController`. |
+| 0a7fdae | 2025-09-29 | Adición de lógica de clave de administrador (`adminkey`) en el `handleDelete` en la página `ComplaintsList`. |
+| aac525c | 2025-09-29 | Adición de lógica de clave de administrador (`adminkey`) en el método `deleteQueja` en `quejasController`. |
+| e3aea37 | 2025-09-24 | Adición de prueba para la funcionalidad de Consultar Quejas/Reclamos. |
+| f42fe94 | 2025-09-24 | Adición de pruebas para tres funcionalidades básicas. |
+| a32d9d8 | 2025-09-24 | Adición de opción al botón de menú. |
+| e18bf93 | 2025-09-23 | Adición del **botón de menú** en cada queja. |
+| 06a97d3 | 2025-09-16 | Creación de la primera prueba para la funcionalidad `WriteComplaints`. |
+| 4239457 | 2025-09-16 | Adición de **límite de 10 quejas** máximo por página. |
+| 5cc2ab5 | 2025-09-16 | Envío de **correo electrónico** al generar un informe/queja. |
+| c0aa75b | 2025-09-09 | Adición de la **configuración para el despliegue en Render**. |
+| f5746ee | 2025-09-09 | Adición de la estructura del proyecto para **ejecución local**. |
+| 9b16b79 | 2025-09-08 | Adición de la **configuración de la base de datos (DB)** con conexión a Clever Cloud. |
+| 1280733 | 2025-09-08 | Adición del proyecto base. |
+
+---
+
+### 🐛 Correcciones de Errores (Fixes)
+
+| Hash | Fecha | Descripción del Commit |
+| :--- | :--- | :--- |
+| e60a210 | 2025-10-28 | Uso de *callback* en `useEffect` para prevenir errores en `comentsmodal`. |
+| 57e366b | 2025-10-28 | Uso de *callback* en `useEffect` para prevenir errores. |
+| 1a98e5f | 2025-10-27 | Adición de configuración para las pruebas. |
+| a162537 | 2025-10-27 | Adición de configuración para las pruebas. |
+| 84efea6 | 2025-10-26 | Corrección de la **doble declaración de `useParams`**. |
+| 9d8a791 | 2025-10-20 | Corrección del tipo de archivo de `AuthContext.js`. |
+| e429d28 | 2025-10-11 | Corrección de errores en `commentsController`. |
+| aa70a3f | 2025-10-11 | Corrección de errores en `commentsController`. |
+| a562326 | 2025-10-05 | Corrección de errores en la página de lista de quejas. |
+| 57c2189 | 2025-10-05 | Corrección de errores en la lista y el *controller* de quejas. |
+| 29b6963 | 2025-10-05 | Corrección de errores en el limitador de solicitudes y rutas. |
+| f29802b | 2025-10-04 | Corrección de errores en *middleware* y configuración de rutas. |
+| 2edaf39 | 2025-10-04 | Corrección de errores en el *script* de la base de datos. |
+| 7b3fa8f | 2025-10-03 | Corrección de errores en el *script* de la base de datos. |
+| 566cbc8 | 2025-10-03 | Corrección de errores en el *script* de esquema de base de datos. |
+| bcd122e | 2025-10-03 | Solución de errores en el servicio de base de datos. |
+| 5b28e5d | 2025-10-03 | Solución de conflictos en `ComplaintsList.js`. |
+| 3c19d57 | 2025-10-01 | Corrección de error en `deletequeja`. |
+| 3ab9f72 | 2025-09-29 | Corrección de condicional en la consulta SQL de `getQuejasByEntidadCount` en `database.js`. |
+| 45c13d0 | 2025-09-29 | Corrección de condicional en la consulta SQL de `getQuejasByEntidad` en `database.js`. |
+| 47cd4da | 2025-09-24 | Cambio de la prioridad de los estilos. |
+| d8d4a26 | 2025-09-24 | Cambio de estilos del menú. |
+| 318a8ee | 2025-09-24 | Corrección de nombres de constantes para el botón de menú. |
+| 8d048b7 | 2025-09-23 | Corrección de estilo en `index.css` para verificar el botón. |
+| 2b57887 | 2025-09-23 | Corrección de la ubicación del botón. |
+| 1713ede | 2025-09-19 | Corrección de `complaintsResponse` en `ComplaintsList`. |
+| 5daae25 | 2025-09-19 | Corrección de botones y paginación en `ComplaintsList`. |
+| 55e1833 | 2025-09-19 | Corrección de `const` por `let` al cambiar valores. |
+| 4dd11c8 | 2025-09-17 | Corrección de error en la función de envío de correo electrónico. |
+| 6270401 | 2025-09-17 | Solución de errores en el enrutamiento de la API. |
+| 807980e | 2025-09-16 | Corrección de la refactorización del método `createQuejas`. |
+| edd3bf6 | 2025-09-16 | Corrección de errores de importación. |
+| 7a91cc6 | 2025-09-16 | Corrección de errores de conexión. |
+| 19ef9e9 | 2025-09-14 | *Rebase* de `entidadesController`. |
+| 767167b | 2025-09-09 | Movimiento de iconos a `src/assets` y uso de importaciones ES6 para mayor fiabilidad. |
+| 209010b | 2025-09-09 | Uso de rutas absolutas para iconos sin `process.env.PUBLIC_URL`. |
+| e63869c | 2025-09-09 | Actualización de rutas de iconos para usar URL relativas para una carga adecuada en producción. |
+| c007a17 | 2025-09-09 | Movimiento de rutas de API antes del manejador *catchall* del *frontend*. |
+| 9d0ed1a | 2025-09-09 | Adición de creación automática de tablas de base de datos y *logs* detallados de depuración. |
+| 707f0f7 | 2025-09-09 | Corrección de enlace de exportación de instancia. |
+| 2a1d7e0 | 2025-09-09 | Adición de *logs* de depuración y mejora del manejo de la conexión a la base de datos. |
+| 1681ac3 | 2025-09-09 | Corrección de ruta de página de inicio. |
+| eaadc59 | 2025-09-09 | Corrección de `require` para el módulo `dotenv`. |
+| ccdca3d | 2025-09-09 | Desactivación de `helmet`. |
+| f8a95b1 | 2025-09-09 | Adición de encabezados personalizados para el servicio de archivos estáticos. |
+| 0a5fbac | 2025-09-09 | Modificación de CSP para incluir Google Fonts. |
+| be80448 | 2025-09-09 | Corrección de `dotenv`. |
+| baa595a | 2025-09-09 | Corrección de `svg` incorrecto en la línea 216. |
+| bc0f280 | 2025-09-03 | Cambio de **GitHub Actions** para que sea únicamente de *build*. |
+
+---
+
+### ♻️ Refactorización y Mejoras Internas (Refactoring & Chores)
+
+| Hash | Fecha | Descripción del Commit |
+| :--- | :--- | :--- |
+| 2ce6c47 | 2025-10-27 | Refactorización de todas las pruebas para usar **Mockito DB**. |
+| bde9bfb | 2025-10-19 | Refactorización de código en **repositorio, servicios y validadores**. |
+| f8f8dde | 2025-10-19 | Corrección de errores en `repository.js`. |
+| 9e76c22 | 2025-10-19 | División de la lógica entre **servicio y repositorio** para mejorar la separación de responsabilidades. |
+| bd4a592 | 2025-10-16 | Refactorización del código de **estadísticas** y ajuste de *controllers* relacionados. |
+| 3643328 | 2025-10-13 | Refactorización de `quejasController` con *helpers*, métodos auxiliares y respuestas. |
+| b57c5f3 | 2025-10-11 | Refactorización de `entidadesController` con *helpers*, métodos auxiliares y respuestas. |
+| 18c1f4a | 2025-10-11 | Reorganización de código y adición de *helpers* para un mejor mantenimiento. |
+| 760bb22 | 2025-09-28 | Refactorización de la consulta SQL en el método `getQuejasPorEntidad`. |
+| d5afafb | 2025-09-22 | Refactorización del `.env` de ejemplo. |
+| d1c7eef | 2025-09-22 | Refactorización del `readme.md` con la estructura correcta. |
+| 3148670 | 2025-09-16 | Ajustes de código. |
+| d1386ea | 2025-09-13 | Reestructuración de `entidadesController` con prácticas de **código limpio**. |
+| b6409e2 | 2025-09-10 | Refactorización del método `writeComplaint`. |
+| 9ee26d3 | 2025-09-09 | Mejora de `entidadesController` aplicando principios de código limpio. |
+| bbca8cb | 2025-09-09 | Eliminación de todos los *logs* de depuración (`console.log`) y dependencias no utilizadas (`cors`, `helmet`). |
+
+---
+
+### 📖 Documentación y Configuración (Docs & Config)
+
+| Hash | Fecha | Descripción del Commit |
+| :--- | :--- | :--- |
+| e2b4159 | 2025-09-24 | Actualización de `README.md`. |
+| da56043 | 2025-09-24 | Actualización de `Generate changelog.yml` con *committer*. |
+| c174c2f | 2025-09-24 | Actualización de `build-test.yml` con pruebas de *backend*. |
+| cd73498 | 2025-09-24 | Actualización de `Generate changelog.yml`. |
+| 836080d | 2025-09-24 | Actualización de `Generate changelog.yml`. |
+| c82145b | 2025-09-24 | Actualización de `Generate changelog.yml` con permisos de escritura. |
+| 01dde36 | 2025-09-24 | Actualización de `Generate changelog.yml` a nueva versión. |
+| 7624201 | 2025-09-24 | Actualización de `Generate changelog.yml`. |
+| 21cb7e7 | 2025-09-24 | Actualización de `Generate changelog.yml`. |
+| 9cdbf4f | 2025-09-24 | Creación de `Generate changelog.yml`. |
+| 143f682 | 2025-09-22 | Adición de **documentación de reglas de trabajo**. |
+| 10c2494 | 2025-09-09 | Deshabilitación de CORS y adición de *logging* global de solicitudes (Temporal para depuración). |
+| ac0fc6d | 2025-09-09 | Adición de verificación de carga de rutas de API (Temporal para depuración). |
+| 69106c8 | 2025-09-09 | Deshabilitación de limitador de tasa y adición de *logging* de *middleware* de API (Temporal para depuración). |
+| f4473e3 | 2025-09-09 | Adición de *logging* de ruta y *middleware* para rastrear el flujo de ejecución (Temporal para depuración). |
+| 74d7b3b | 2025-09-02 | Creación de `build-test.yml`. |
