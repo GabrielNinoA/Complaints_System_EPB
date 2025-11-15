@@ -1,4 +1,4 @@
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3001';
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3002';
 
 /**
  * Servicio para validar autenticación con el microservicio
