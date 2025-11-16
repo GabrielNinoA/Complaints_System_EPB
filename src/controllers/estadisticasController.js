@@ -1,10 +1,11 @@
 const dbService = require('../services/database');
 
-let emailService = null;
+// Event producer para arquitectura de eventos con Kafka
+let eventProducer = null;
 try {
-    emailService = require('../services/emailService');
+    eventProducer = require('../events/eventProducer');
 } catch (error) {
-    console.warn('⚠️  Servicio de email no disponible:', error.message);
+    console.warn('⚠️  Event producer no disponible:', error.message);
 }
 
 class EstadisticasController {
@@ -16,7 +17,6 @@ class EstadisticasController {
         this.healthCheck = this.healthCheck.bind(this);
         this.getReportes = this.getReportes.bind(this);
         this.getReporteCSV = this.getReporteCSV.bind(this);
-        this.testEmail = this.testEmail.bind(this);
     }
 
     _sendSuccessResponse(res, data, extras = {}) {
@@ -64,30 +64,39 @@ class EstadisticasController {
     }
 
     async _sendEmailNotification(reportData, userInfo) {
-        if (!emailService) {
-            console.log('📧 Servicio de email no disponible, saltando notificación');
-            return { success: true, skipped: true, reason: 'Servicio no disponible' };
+        if (!eventProducer) {
+            console.log('📧 Event producer no disponible, saltando notificación');
+            return { success: true, skipped: true, reason: 'Event producer no disponible' };
         }
 
         try {
-            const emailPromise = emailService.sendReportNotification(reportData, userInfo);
+            // Publicar evento a Kafka para que el consumidor de email lo procese
+            const eventData = {
+                type: 'REPORT_GENERATED',
+                reportData,
+                timestamp: new Date().toISOString()
+            };
+
+            // Extraer username del userInfo o usar 'Sistema' por defecto
+            const username = userInfo.username || userInfo.ip || 'Sistema';
+
+            // Publicar evento de forma asíncrona
+            const eventPromise = eventProducer.publishEmailEvent(eventData, username);
             
-            emailPromise.then(result => {
-                if (result.success && !result.skipped) {
-                    console.log('📧 Notificación enviada exitosamente:', result.messageId);
-                } else if (result.skipped) {
-                    console.log('📧 Notificación saltada:', result.reason);
+            eventPromise.then(result => {
+                if (result.success) {
+                    console.log('📧 Evento publicado exitosamente a Kafka:', result.traceId);
                 } else {
-                    console.warn('⚠️  Error enviando notificación (no crítico):', result.error);
+                    console.error('❌ Error al publicar evento:', result.error);
                 }
             }).catch(error => {
-                console.error('❌ Error en notificación por email (no crítico):', error.message);
+                console.error('❌ Error no controlado al publicar evento:', error);
             });
 
             return { success: true, background: true };
         } catch (error) {
-            console.error('❌ Error configurando notificación (no crítico):', error.message);
-            return { success: false, error: error.message, nonCritical: true };
+            console.error('❌ Error al preparar evento:', error);
+            return { success: false, error: error.message };
         }
     }
 
@@ -384,29 +393,6 @@ class EstadisticasController {
             res.send(csvRows.join('\n'));
         } catch (error) {
             this._sendErrorResponse(res, 'Error generando reporte CSV', 500, error);
-        }
-    }
-
-    async testEmail(req, res) {
-        try {
-            if (!emailService) {
-                return this._sendErrorResponse(
-                    res,
-                    'Servicio de email no disponible',
-                    503
-                );
-            }
-
-            const result = await emailService.sendTestEmail();
-            
-            this._sendSuccessResponse(res, {
-                message: 'Test de email completado',
-                result,
-                email_service_available: true,
-                notifications_enabled: process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true'
-            });
-        } catch (error) {
-            this._sendErrorResponse(res, 'Error en test de email', 500, error);
         }
     }
 }
