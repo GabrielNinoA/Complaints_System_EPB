@@ -1,13 +1,5 @@
--- Script para la creación de la base de datos del Sistema de Quejas
--- Versión actualizada con soporte para comentarios
 
--- Crear la base de datos si no existe
-CREATE DATABASE IF NOT EXISTS bn1wjilwxf7lfij13vn4 
-CHARACTER SET utf8mb4 
 COLLATE utf8mb4_unicode_ci;
-
--- Usar la base de datos
-USE bn1wjilwxf7lfij13vn4;
 
 -- Crear tabla de entidades
 CREATE TABLE IF NOT EXISTS entidades (
@@ -16,7 +8,7 @@ CREATE TABLE IF NOT EXISTS entidades (
     estado BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
+     
     -- Índices para optimización
     INDEX idx_nombre (nombre),
     INDEX idx_estado (estado)
@@ -112,3 +104,33 @@ DESCRIBE quejas;
 
 SELECT 'Estructura de la tabla comentarios:' as mensaje;
 DESCRIBE comentarios;
+
+-- ==================== TABLA DE HISTORIAL DE ACCIONES ====================
+-- Esta tabla almacena el registro histórico de todas las acciones realizadas
+-- Los datos llegan desde Kafka Consumer
+
+CREATE TABLE IF NOT EXISTS historial_acciones (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tipo_accion ENUM('CREATE', 'UPDATE', 'DELETE') NOT NULL,
+    entidad_afectada ENUM('quejas', 'entidades', 'comentarios') NOT NULL,
+    registro_id INT NOT NULL,
+    datos_anteriores JSON NULL COMMENT 'Estado anterior del registro (para UPDATE y DELETE)',
+    datos_nuevos JSON NULL COMMENT 'Estado nuevo del registro (para CREATE y UPDATE)',
+    usuario VARCHAR(255) DEFAULT 'sistema' COMMENT 'Usuario que realizó la acción',
+    ip_address VARCHAR(45) NULL COMMENT 'Dirección IP del usuario',
+    user_agent TEXT NULL COMMENT 'User Agent del navegador',
+    kafka_offset BIGINT NULL COMMENT 'Offset del mensaje en Kafka',
+    kafka_partition INT NULL COMMENT 'Partición del mensaje en Kafka',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Índices para optimización de consultas
+    INDEX idx_tipo_accion (tipo_accion),
+    INDEX idx_entidad_afectada (entidad_afectada),
+    INDEX idx_registro_id (registro_id),
+    INDEX idx_created_at (created_at),
+    INDEX idx_entidad_registro (entidad_afectada, registro_id),
+    INDEX idx_usuario (usuario)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+SELECT 'Estructura de la tabla historial_acciones:' as mensaje;
+DESCRIBE historial_acciones;

@@ -6,6 +6,7 @@ const entidadesController = require('../controllers/entidadesController');
 const quejasController = require('../controllers/quejasController');
 const comentariosController = require('../controllers/comentariosController');
 const estadisticasController = require('../controllers/estadisticasController');
+const historialController = require('../controllers/historialController');
 
 // Importar middleware
 const { globalLimiter, complaintsLimiter, consultLimiter, adminLimiter } = require('../middleware/rateLimiter');
@@ -145,6 +146,34 @@ router.get('/reportes/csv',
 );
 
 // ==================== RUTAS DE AUDITORÍA ====================
+
+// ==================== RUTAS DE HISTORIAL DE ACCIONES ====================
+
+// Obtener todos los registros históricos con filtros y paginación
+router.get('/historial',
+    consultLimiter,
+    asyncHandler(historialController.getAllHistorial)
+);
+
+// Obtener estadísticas del historial
+router.get('/historial/stats',
+    consultLimiter,
+    asyncHandler(historialController.getHistorialStats)
+);
+
+// Obtener estadísticas del consumer de Kafka
+router.get('/historial/consumer/stats',
+    consultLimiter,
+    asyncHandler(historialController.getConsumerStats)
+);
+
+// Obtener historial de una entidad específica
+router.get('/historial/:entidad/:id',
+    consultLimiter,
+    asyncHandler(historialController.getHistorialByEntity)
+);
+
+// ==================== RUTAS DE AUDITORÍA (LEGACY) ====================
 
 router.get('/auditoria/resumen', async (req, res) => {
     try {

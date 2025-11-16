@@ -1,6 +1,7 @@
 const dbService = require('../services/database');
 const { QuejaValidator, QueryValidator } = require('../validators');
 const authValidationService = require('../services/authValidationService');
+const auditService = require('../services/auditService');
 
 class QuejasController {
     constructor() {
@@ -118,6 +119,9 @@ class QuejasController {
             const nuevaQueja = await dbService.createQueja(quejaData);
             const responseData = this.buildCreateQuejaResponse(nuevaQueja, quejaData, entidad);
 
+            // 📝 Auditoría: Registrar creación de queja
+            await auditService.logCreate('quejas', nuevaQueja.id, responseData, auditService.extractMetadata(req));
+
             return this.sendSuccessResponse(res, responseData, startTime, 201, { message: 'Queja creada exitosamente' });
         } catch (error) {
             this.logError('creando queja', error);
@@ -172,8 +176,11 @@ class QuejasController {
                 return this.sendValidationErrorResponse(res, 'ID de queja inválido', idValidation.errors);
             }
 
-            await this.getAndEnsureQuejaExists(idValidation.id);
+            const quejaExistente = await this.getAndEnsureQuejaExists(idValidation.id);
             await dbService.deleteQueja(idValidation.id);
+
+            // 📝 Auditoría: Registrar eliminación de queja
+            await auditService.logDelete('quejas', idValidation.id, quejaExistente, auditService.extractMetadata(req));
 
             return this.sendSuccessResponse(res, null, startTime, 200, { message: 'Queja eliminada exitosamente' });
 
@@ -210,6 +217,15 @@ class QuejasController {
                 estadoAnterior: quejaExistente.state,
                 estadoNuevo: state,
             };
+
+            // 📝 Auditoría: Registrar actualización de estado
+            await auditService.logUpdate(
+                'quejas', 
+                idValidation.id, 
+                { state: quejaExistente.state }, 
+                { state: state },
+                auditService.extractMetadata(req)
+            );
 
             return this.sendSuccessResponse(res, responseData, startTime, 200, { message: 'Estado de queja actualizado' });
 

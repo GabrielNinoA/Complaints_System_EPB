@@ -4,16 +4,14 @@ const requestLogger = (req, res, next) => {
     const method = req.method;
     const url = req.originalUrl;
     const ip = req.ip || req.connection.remoteAddress || 'unknown';
-    const userAgent = (req.get('User-Agent') || 'unknown').substring(0, 100);
 
-    // En desarrollo, loggear todos los requests
-    // En producción, solo loggear requests importantes
-    const shouldLog = process.env.NODE_ENV !== 'production' || 
-                     method !== 'GET' || 
-                     url.includes('/api/');
+    // Solo loggear requests importantes (POST, PUT, DELETE, PATCH) o rutas específicas
+    const shouldLog = method !== 'GET' || 
+                     url.includes('/historial') || 
+                     url.includes('/stats');
 
     if (shouldLog) {
-        console.log(`[${timestamp}] ${method} ${url} - IP: ${ip} - UA: ${userAgent}`);
+        console.log(`📡 [${method}] ${url} | IP: ${ip.substring(0, 15)}`);
     }
 
     // Agregar timestamp al request para medir tiempo de respuesta
@@ -24,8 +22,9 @@ const requestLogger = (req, res, next) => {
     res.send = function(data) {
         const responseTime = Date.now() - req.startTime;
         
-        if (shouldLog && responseTime > 1000) { // Log slow requests
-            console.log(`⚠️  Slow request: ${method} ${url} - ${responseTime}ms`);
+        // Solo loguear requests lentos
+        if (responseTime > 1000) {
+            console.log(`⏱️  [SLOW] ${method} ${url} - ${responseTime}ms`);
         }
         
         originalSend.call(this, data);

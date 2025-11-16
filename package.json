@@ -37,7 +37,8 @@
     "express-rate-limit": "^8.0.1",
     "mysql2": "^3.6.0",
     "compression": "^1.7.4",
-    "nodemailer": "^6.10.1"
+    "nodemailer": "^6.10.1",
+    "kafkajs": "^2.2.4"
   },
   "devDependencies": {
     "jest": "^29.7.0",

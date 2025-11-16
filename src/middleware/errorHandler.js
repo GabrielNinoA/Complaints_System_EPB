@@ -1,20 +1,18 @@
 
 function logError(error, req, context = '') {
-    const timestamp = new Date().toISOString();
     const method = req?.method || 'UNKNOWN';
     const path = req?.originalUrl || req?.url || 'UNKNOWN';
     const ip = req?.ip || req?.connection?.remoteAddress || 'UNKNOWN';
     
-    console.error('\n' + '='.repeat(80));
-    console.error(`[${timestamp}] ERROR: ${method} ${path} - IP: ${ip}`);
-    if (context) console.error(`Context: ${context}`);
-    console.error(`Message: ${error.message}`);
+    console.error(`❌ [ERROR] ${method} ${path} | ${error.message}`);
     
-    if (process.env.NODE_ENV === 'development') {
-        console.error('Stack:', error.stack);
+    if (context) {
+        console.error(`   Context: ${context}`);
     }
     
-    console.error('='.repeat(80) + '\n');
+    if (process.env.NODE_ENV === 'development' && error.stack) {
+        console.error(`   Stack: ${error.stack.split('\n')[0]}`);
+    }
 }
 
 
@@ -76,7 +74,6 @@ function getStatusCode(error) {
 
 
 const asyncHandler = (fn) => (req, res, next) => {
-    console.log('🔍 [ASYNC] AsyncHandler ejecutándose para:', req.path);
     Promise.resolve(fn(req, res, next)).catch(next);
 };
 

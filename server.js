@@ -4,6 +4,8 @@ const compression = require('compression');
 const apiRoutes = require('./src/routes/api');
 const { errorHandler, notFoundHandler } = require('./src/middleware/errorHandler');
 const { requestLogger } = require('./src/middleware/logger');
+const kafkaProducer = require('./src/services/kafkaProducer');
+const kafkaConsumer = require('./src/services/kafkaConsumer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -238,9 +240,65 @@ async function startServer() {
                     console.log('✅ Tabla comentarios existe');
                 }
                 
+                // Verificar tabla de historial_acciones
+                const historialTable = await dbService.execute("SHOW TABLES LIKE 'historial_acciones'");
+                if (historialTable.length === 0) {
+                    console.log('⚠️  Tabla historial_acciones no existe, creándola...');
+                    await dbService.execute(`
+                        CREATE TABLE IF NOT EXISTS historial_acciones (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            tipo_accion ENUM('CREATE', 'UPDATE', 'DELETE') NOT NULL,
+                            entidad_afectada ENUM('quejas', 'entidades', 'comentarios') NOT NULL,
+                            registro_id INT NOT NULL,
+                            datos_anteriores JSON NULL,
+                            datos_nuevos JSON NULL,
+                            usuario VARCHAR(255) DEFAULT 'sistema',
+                            ip_address VARCHAR(45) NULL,
+                            user_agent TEXT NULL,
+                            kafka_offset BIGINT NULL,
+                            kafka_partition INT NULL,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            INDEX idx_tipo_accion (tipo_accion),
+                            INDEX idx_entidad_afectada (entidad_afectada),
+                            INDEX idx_registro_id (registro_id),
+                            INDEX idx_created_at (created_at),
+                            INDEX idx_entidad_registro (entidad_afectada, registro_id),
+                            INDEX idx_usuario (usuario)
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                    `);
+                    console.log('✅ Tabla historial_acciones creada');
+                } else {
+                    console.log('✅ Tabla historial_acciones existe');
+                }
+                
             } catch (dbError) {
                 console.error('❌ Error verificando base de datos:', dbError.message);
             }
+        }
+        
+        // ==================== INICIALIZAR KAFKA ====================
+        // Inicializar Kafka Producer y Consumer
+        const kafkaEnabled = process.env.KAFKA_ENABLED !== 'false'; // Por defecto habilitado
+        
+        if (kafkaEnabled) {
+            try {
+                console.log('\n📨 Inicializando Kafka...');
+                
+                // Conectar Producer
+                await kafkaProducer.connect();
+                console.log('✅ Kafka Producer inicializado');
+                
+                // Conectar y arrancar Consumer
+                await kafkaConsumer.connect();
+                await kafkaConsumer.start();
+                console.log('✅ Kafka Consumer iniciado y escuchando eventos');
+                
+            } catch (kafkaError) {
+                console.error('❌ Error inicializando Kafka:', kafkaError.message);
+                console.warn('⚠️  El sistema continuará sin Kafka. Los registros no se guardarán en el historial.');
+            }
+        } else {
+            console.log('ℹ️  Kafka deshabilitado (KAFKA_ENABLED=false)');
         }
         
         const server = app.listen(PORT, '0.0.0.0', () => {
@@ -256,8 +314,19 @@ async function startServer() {
         });
 
         // Manejo de cierre graceful
-        const gracefulShutdown = (signal) => {
+        const gracefulShutdown = async (signal) => {
             console.log(`\n🛑 Recibida señal ${signal}, cerrando servidor...`);
+            
+            // Desconectar Kafka
+            if (kafkaEnabled) {
+                try {
+                    await kafkaProducer.disconnect();
+                    await kafkaConsumer.disconnect();
+                    console.log('✅ Kafka desconectado');
+                } catch (kafkaError) {
+                    console.error('❌ Error desconectando Kafka:', kafkaError.message);
+                }
+            }
             
             server.close(() => {
                 console.log('✅ Servidor HTTP cerrado');

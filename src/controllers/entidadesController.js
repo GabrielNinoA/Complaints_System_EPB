@@ -1,5 +1,6 @@
 const dbService = require('../services/database');
 const { QueryValidator } = require('../validators');
+const auditService = require('../services/auditService');
 
 class EntidadesController {
     constructor() {
@@ -88,6 +89,11 @@ class EntidadesController {
                 return this._sendErrorResponse(res, 'Entidad no encontrada', 404);
             }
 
+            // Registrar auditoría de consulta (no bloqueante)
+            auditService.logRead('entidades', validation.id, entidad).catch(err => {
+                console.error('⚠️  Error en auditoría READ:', err.message);
+            });
+
             this._sendSuccessResponse(res, entidad, {
                 responseTime: this._getResponseTime(startTime)
             });
@@ -106,6 +112,13 @@ class EntidadesController {
             }
 
             const entidad = await dbService.getEntidadByNombre(nombre.value);
+
+            // Registrar auditoría de consulta si se encontró (no bloqueante)
+            if (entidad) {
+                auditService.logRead('entidades', entidad.id, entidad).catch(err => {
+                    console.error('⚠️  Error en auditoría READ:', err.message);
+                });
+            }
 
             this._sendSuccessResponse(res, entidad, {
                 found: !!entidad,
