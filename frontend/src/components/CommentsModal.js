@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 const CommentsModal = ({ quejaId, quejaTitle, onClose }) => {
   const [comentarios, setComentarios] = useState([]);
@@ -9,11 +9,7 @@ const CommentsModal = ({ quejaId, quejaTitle, onClose }) => {
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState('');
 
-  useEffect(() => {
-    cargarComentarios();
-  }, [quejaId]);
-
-  const cargarComentarios = async () => {
+  const cargarComentarios = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(
@@ -31,7 +27,11 @@ const CommentsModal = ({ quejaId, quejaTitle, onClose }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [quejaId]);
+
+  useEffect(() => {
+    cargarComentarios();
+  }, [cargarComentarios]);
 
   const handleAgregarComentario = async () => {
     if (!nuevoComentario.trim() || nuevoComentario.trim().length < 5) {

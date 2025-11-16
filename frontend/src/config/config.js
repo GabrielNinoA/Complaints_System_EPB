@@ -3,10 +3,10 @@ const config = {
   // URL de la API
   API_URL: process.env.REACT_APP_API_URL || (
     // En producción, usar la misma URL del frontend (rutas relativas)
-    process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3001'
+    process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3000'
   ),
     // URL del microservicio de autenticación
-  AUTH_SERVICE_URL: 'https://autenticator-complaint-system-epb.onrender.com',
+  AUTH_SERVICE_URL: 'http://localhost:3002',
   
   // Configuración de la aplicación
   APP_NAME: 'Sistema de Quejas Boyacá',
