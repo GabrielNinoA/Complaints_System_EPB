@@ -6,6 +6,7 @@ const entidadesController = require('../controllers/entidadesController');
 const quejasController = require('../controllers/quejasController');
 const comentariosController = require('../controllers/comentariosController');
 const estadisticasController = require('../controllers/estadisticasController');
+const historialController = require('../controllers/historialController');
 
 // Importar middleware
 const { globalLimiter, complaintsLimiter, consultLimiter, adminLimiter } = require('../middleware/rateLimiter');
@@ -162,6 +163,26 @@ router.get('/auditoria/resumen', async (req, res) => {
         });
     }
 });
+
+// ==================== RUTAS DE HISTORIAL ====================
+
+// Obtener todo el historial con filtros y paginación
+router.get('/historial',
+    consultLimiter,
+    asyncHandler(historialController.getAllHistorial)
+);
+
+// Obtener estadísticas del historial
+router.get('/historial/stats',
+    consultLimiter,
+    asyncHandler(historialController.getHistorialStats)
+);
+
+// Obtener historial de una entidad específica
+router.get('/historial/:entidad/:id',
+    consultLimiter,
+    asyncHandler(historialController.getHistorialByEntity)
+);
 
 // ==================== RUTAS DE COMPATIBILIDAD ====================
 

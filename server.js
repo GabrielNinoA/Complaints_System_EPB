@@ -4,6 +4,7 @@ const compression = require('compression');
 const apiRoutes = require('./src/routes/api');
 const { errorHandler, notFoundHandler } = require('./src/middleware/errorHandler');
 const { requestLogger } = require('./src/middleware/logger');
+const kafkaProducer = require('./src/services/kafkaProducer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -164,6 +165,16 @@ app.use(errorHandler);
 
 async function startServer() {
     try {
+        // Inicializar Kafka Producer
+        console.log('🔍 Iniciando Kafka Producer...');
+        try {
+            await kafkaProducer.connect();
+            console.log('✅ Kafka Producer inicializado');
+        } catch (kafkaError) {
+            console.warn('⚠️  No se pudo conectar a Kafka:', kafkaError.message);
+            console.warn('⚠️  El sistema continuará sin auditoría en Kafka');
+        }
+        
         // Verificar conexión a base de datos
         const dbConfig = require('./src/config/database');
         console.log('🔍 Verificando conexión a base de datos...');
@@ -256,8 +267,16 @@ async function startServer() {
         });
 
         // Manejo de cierre graceful
-        const gracefulShutdown = (signal) => {
+        const gracefulShutdown = async (signal) => {
             console.log(`\n🛑 Recibida señal ${signal}, cerrando servidor...`);
+            
+            // Desconectar Kafka Producer
+            try {
+                await kafkaProducer.disconnect();
+                console.log('✅ Kafka Producer desconectado');
+            } catch (kafkaError) {
+                console.error('❌ Error desconectando Kafka:', kafkaError.message);
+            }
             
             server.close(() => {
                 console.log('✅ Servidor HTTP cerrado');
