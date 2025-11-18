@@ -7,6 +7,7 @@ import WriteComplaint from './pages/WriteComplaint';
 import ConsultComplaints from './pages/ConsultComplaints';
 import ComplaintsList from './pages/ComplaintsList';
 import Reports from './pages/Reports';
+import AuditHistory from './pages/AuditHistory';
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
           <Route path="/consultar-quejas" element={<ConsultComplaints />} />
           <Route path="/quejas/:entityId" element={<ComplaintsList />} />
           <Route path="/reportes" element={<Reports />} />
+          <Route path="/historial" element={<AuditHistory />} />
         </Routes>
       </Layout>
     </AuthProvider>
