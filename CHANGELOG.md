@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## [v0.0.5](https://github.com/GabrielNinoA/Complaints_System_EPB/releases/tag/v0.0.5) - 2025-11-19 19:00:16+00:00
+
+*No description*
+
+### Feature
+
+- general:
+  - add action history functionality using Kafka ([d4c17b7](https://github.com/GabrielNinoA/Complaints_System_EPB/commit/d4c17b73d070cc4da9a4e4208de93e8481fe3409)) ([#84](https://github.com/GabrielNinoA/Complaints_System_EPB/pull/84))
+
+### Bug Fixes
+
+- general:
+  - correct history handling with active and inactive consumers ([58ceb80](https://github.com/GabrielNinoA/Complaints_System_EPB/commit/58ceb80cf63afbdf88755201b25fd37082362440)) ([#85](https://github.com/GabrielNinoA/Complaints_System_EPB/pull/85))
+
+### 
+
+- general:
+  - add action history functionality using Kafka ([d4c17b7](https://github.com/GabrielNinoA/Complaints_System_EPB/commit/d4c17b73d070cc4da9a4e4208de93e8481fe3409)) ([#84](https://github.com/GabrielNinoA/Complaints_System_EPB/pull/84))
+
+###  
+
+- general:
+  - correct history handling with active and inactive consumers ([58ceb80](https://github.com/GabrielNinoA/Complaints_System_EPB/commit/58ceb80cf63afbdf88755201b25fd37082362440)) ([#85](https://github.com/GabrielNinoA/Complaints_System_EPB/pull/85))
+
 ## [v0.0.3](https://github.com/GabrielNinoA/Complaints_System_EPB/releases/tag/v0.0.3) - 2025-10-28 06:49:03+00:00
 
 *No description*
