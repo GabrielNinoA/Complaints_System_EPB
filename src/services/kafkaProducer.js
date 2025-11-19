@@ -1,4 +1,5 @@
 const kafkaConfig = require('../config/kafka');
+const kafkaMessagesService = require('./kafkaMessagesService');
 
 class KafkaProducerService {
     constructor() {
@@ -73,12 +74,32 @@ class KafkaProducerService {
                 },
             };
 
+            // PASO 1: Enviar a Kafka PRIMERO para obtener el offset real
             const result = await this.producer.send({
                 topic: this.topics.AUDIT,
                 messages: [message],
             });
 
-            console.log(`📤 [AUDIT] ${auditEvent.tipoAccion} → ${auditEvent.entidadAfectada}#${auditEvent.registroId} enviado a Kafka`);
+            // Debug: Ver la estructura completa de la respuesta de Kafka
+            console.log(`🔍 [DEBUG-PRODUCER] Resultado completo de Kafka:`, JSON.stringify(result, null, 2));
+            console.log(`🔍 [DEBUG-PRODUCER] result[0]:`, result[0]);
+            console.log(`🔍 [DEBUG-PRODUCER] Offset: ${result[0]?.offset} (tipo: ${typeof result[0]?.offset})`);
+            console.log(`🔍 [DEBUG-PRODUCER] Partition: ${result[0]?.partition} (tipo: ${typeof result[0]?.partition})`);
+            console.log(`🔍 [DEBUG-PRODUCER] BaseOffset: ${result[0]?.baseOffset} (tipo: ${typeof result[0]?.baseOffset})`);
+
+            // PASO 2: Guardar en kafka_mensajes_pendientes con el offset real de Kafka
+            const saveResult = await kafkaMessagesService.saveOutgoingMessage(
+                this.topics.AUDIT,
+                message,
+                result[0] // Pasamos el resultado real de Kafka (partition y offset)
+            );
+
+            if (saveResult.success) {
+                console.log(`📤 [AUDIT] ${auditEvent.tipoAccion} → ${auditEvent.entidadAfectada}#${auditEvent.registroId} enviado a Kafka`);
+                console.log(`💾 [AUDIT] Guardado en kafka_mensajes_pendientes como PENDIENTE (Partition: ${result[0].partition}, Offset: ${result[0].offset})`);
+            } else {
+                console.warn(`⚠️ [AUDIT] No se pudo guardar en kafka_mensajes_pendientes, pero el mensaje está en Kafka`);
+            };
             
             return {
                 success: true,

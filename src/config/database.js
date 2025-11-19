@@ -13,14 +13,11 @@ class DatabaseConfig {
             dateStrings: true,
             multipleStatements: false,
             
-            // Configuraciones de conexión (solo las válidas para MySQL2)
             connectTimeout: 60000,
             
-            // Pool de conexiones para mejor rendimiento
             connectionLimit: 10,
             queueLimit: 0,
             
-            // Configuración SSL para Clever Cloud
             ssl: process.env.NODE_ENV === 'production' ? {
                 rejectUnauthorized: false
             } : false

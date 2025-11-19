@@ -6,6 +6,7 @@ class HistorialController {
         this.getAllHistorial = this.getAllHistorial.bind(this);
         this.getHistorialByEntity = this.getHistorialByEntity.bind(this);
         this.getHistorialStats = this.getHistorialStats.bind(this);
+        this.getKafkaStats = this.getKafkaStats.bind(this);
     }
 
     sendSuccessResponse(res, data, startTime, statusCode = 200, additionalFields = {}) {
@@ -161,6 +162,116 @@ class HistorialController {
         } catch (error) {
             console.error('❌ Error obteniendo estadísticas:', error.message);
             return this.sendErrorResponse(res, 500, 'Error obteniendo estadísticas', error);
+        }
+    }
+
+    async getKafkaStats(req, res) {
+        try {
+            const startTime = Date.now();
+            
+            const checkTableQuery = `
+                SELECT COUNT(*) as table_exists 
+                FROM information_schema.tables 
+                WHERE table_schema = DATABASE() 
+                AND table_name = 'kafka_mensajes_pendientes'
+            `;
+            
+            const tableCheck = await dbService.execute(checkTableQuery);
+            
+            if (!tableCheck[0].table_exists) {
+                console.log('⚠️ Tabla kafka_mensajes_pendientes no existe');
+                return this.sendSuccessResponse(res, {
+                    total: 0,
+                    pendientes: 0,
+                    procesados: 0,
+                    errores: 0,
+                    primer_mensaje: null,
+                    ultimo_mensaje: null,
+                    tiempo_promedio_procesamiento: null,
+                    pendientesRecientes: [],
+                    erroresRecientes: [],
+                    tableExists: false,
+                }, startTime);
+            }
+            
+            const query = `
+                SELECT 
+                    COUNT(*) as total,
+                    SUM(CASE WHEN estado = 'PENDIENTE' THEN 1 ELSE 0 END) as pendientes,
+                    SUM(CASE WHEN estado = 'PROCESADO' THEN 1 ELSE 0 END) as procesados,
+                    SUM(CASE WHEN estado = 'ERROR' THEN 1 ELSE 0 END) as errores,
+                    MIN(fecha_recepcion) as primer_mensaje,
+                    MAX(fecha_recepcion) as ultimo_mensaje,
+                    AVG(CASE 
+                        WHEN estado = 'PROCESADO' AND fecha_procesamiento IS NOT NULL 
+                        THEN TIMESTAMPDIFF(SECOND, fecha_recepcion, fecha_procesamiento) 
+                        ELSE NULL 
+                    END) as tiempo_promedio_procesamiento
+                FROM kafka_mensajes_pendientes
+            `;
+
+            const result = await dbService.execute(query);
+            const kafkaStats = result[0];
+
+            console.log('📊 Kafka Stats Query Result:', kafkaStats);
+            console.log('📊 Raw values:', {
+                total: kafkaStats.total,
+                pendientes: kafkaStats.pendientes,
+                procesados: kafkaStats.procesados,
+                errores: kafkaStats.errores,
+                types: {
+                    total: typeof kafkaStats.total,
+                    pendientes: typeof kafkaStats.pendientes,
+                    procesados: typeof kafkaStats.procesados,
+                    errores: typeof kafkaStats.errores,
+                }
+            });
+
+            const queriesRecientes = {
+                pendientes: `
+                    SELECT topic, partition_number, offset_number, fecha_recepcion 
+                    FROM kafka_mensajes_pendientes 
+                    WHERE estado = 'PENDIENTE' 
+                    ORDER BY fecha_recepcion DESC 
+                    LIMIT 5
+                `,
+                errores: `
+                    SELECT topic, partition_number, offset_number, error_mensaje, fecha_recepcion 
+                    FROM kafka_mensajes_pendientes 
+                    WHERE estado = 'ERROR' 
+                    ORDER BY fecha_recepcion DESC 
+                    LIMIT 5
+                `,
+            };
+
+            const [pendientesRecientes, erroresRecientes] = await Promise.all([
+                dbService.execute(queriesRecientes.pendientes),
+                dbService.execute(queriesRecientes.errores),
+            ]);
+
+            const stats = {
+                total: Number(kafkaStats.total) || 0,
+                pendientes: Number(kafkaStats.pendientes) || 0,
+                procesados: Number(kafkaStats.procesados) || 0,
+                errores: Number(kafkaStats.errores) || 0,
+                primer_mensaje: kafkaStats.primer_mensaje,
+                ultimo_mensaje: kafkaStats.ultimo_mensaje,
+                tiempo_promedio_procesamiento: kafkaStats.tiempo_promedio_procesamiento 
+                    ? parseFloat(kafkaStats.tiempo_promedio_procesamiento).toFixed(2) 
+                    : null,
+                pendientesRecientes: pendientesRecientes,
+                erroresRecientes: erroresRecientes,
+                tableExists: true,
+            };
+
+            console.log('✅ Kafka Stats Response:', stats);
+
+            return this.sendSuccessResponse(res, stats, startTime);
+
+        } catch (error) {
+            console.error('❌ Error obteniendo estadísticas de Kafka:', error.message);
+            console.error('Stack:', error.stack);
+            return this.sendErrorResponse(res, 500, 'Error obteniendo estadísticas de Kafka', error);
         }
     }
 

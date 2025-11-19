@@ -5,6 +5,7 @@ import './AuditHistory.css';
 const AuditHistory = () => {
   const [historial, setHistorial] = useState([]);
   const [stats, setStats] = useState(null);
+  const [kafkaStats, setKafkaStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filters, setFilters] = useState({
@@ -22,21 +23,27 @@ const AuditHistory = () => {
       if (filters.entidadAfectada) params.append('entidadAfectada', filters.entidadAfectada);
       params.append('limit', filters.limit);
 
-      const [historialRes, statsRes] = await Promise.all([
+      const [historialRes, statsRes, kafkaStatsRes] = await Promise.all([
         fetch(`${config.API_URL}/api/historial?${params}`),
-        fetch(`${config.API_URL}/api/historial/stats`)
+        fetch(`${config.API_URL}/api/historial/stats`),
+        fetch(`${config.API_URL}/api/historial/kafka-stats`)
       ]);
 
-      const [historialData, statsData] = await Promise.all([
+      const [historialData, statsData, kafkaStatsData] = await Promise.all([
         historialRes.json(),
-        statsRes.json()
+        statsRes.json(),
+        kafkaStatsRes.json()
       ]);
 
       if (historialData.success) setHistorial(historialData.data);
       if (statsData.success) setStats(statsData.data);
+      if (kafkaStatsData.success) setKafkaStats(kafkaStatsData.data);
       
       console.log('📊 Registros recibidos:', historialData.data?.length);
       console.log('📊 Total en stats:', statsData.data?.totalRegistros);
+      console.log('📦 Kafka stats RAW:', kafkaStatsData);
+      console.log('📦 Kafka stats data:', kafkaStatsData.data);
+      console.log('📦 Pendientes value:', kafkaStatsData.data?.pendientes, 'Type:', typeof kafkaStatsData.data?.pendientes);
       
       setError('');
     } catch (err) {
@@ -119,6 +126,109 @@ const AuditHistory = () => {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Estadísticas de Kafka - Mensajes Pendientes */}
+      {kafkaStats && (
+        <div className="kafka-stats-section">
+          <h3>📦 Estado de Mensajes Kafka</h3>
+          <p className="kafka-subtitle">
+            Monitoreo en tiempo real de mensajes del consumer service
+          </p>
+          
+          {!kafkaStats.tableExists && (
+            <div className="kafka-alert warning">
+              <strong>⚠️ Tabla no encontrada:</strong> La tabla `kafka_mensajes_pendientes` no existe en la base de datos. 
+              Por favor, ejecuta el script `History_consumer_service_EPB/kafka-messages-table.sql` para crearla.
+            </div>
+          )}
+          
+          <div className="kafka-stats-grid">
+            <div className="kafka-stat-card total">
+              <div className="kafka-stat-icon">📊</div>
+              <div className="kafka-stat-content">
+                <div className="kafka-stat-label">Total Mensajes</div>
+                <div className="kafka-stat-value">{kafkaStats.total.toLocaleString()}</div>
+              </div>
+            </div>
+            <div className="kafka-stat-card pending">
+              <div className="kafka-stat-icon">⏳</div>
+              <div className="kafka-stat-content">
+                <div className="kafka-stat-label">Pendientes</div>
+                <div className="kafka-stat-value">{kafkaStats.pendientes.toLocaleString()}</div>
+                {kafkaStats.pendientes > 0 && (
+                  <div className="kafka-stat-alert">
+                    ⚠️ Consumer puede estar apagado
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="kafka-stat-card processed">
+              <div className="kafka-stat-icon">✅</div>
+              <div className="kafka-stat-content">
+                <div className="kafka-stat-label">Procesados</div>
+                <div className="kafka-stat-value">{kafkaStats.procesados.toLocaleString()}</div>
+              </div>
+            </div>
+            <div className="kafka-stat-card error">
+              <div className="kafka-stat-icon">❌</div>
+              <div className="kafka-stat-content">
+                <div className="kafka-stat-label">Errores</div>
+                <div className="kafka-stat-value">{kafkaStats.errores.toLocaleString()}</div>
+                {kafkaStats.errores > 0 && (
+                  <div className="kafka-stat-alert">
+                    ⚠️ Revisar errores
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          {/* Información adicional */}
+          {kafkaStats.tableExists && (
+            <>
+              <div className="kafka-info">
+                {kafkaStats.tiempo_promedio_procesamiento && (
+                  <div className="kafka-info-item">
+                    <span className="info-label">⏱️ Tiempo promedio de procesamiento:</span>
+                    <span className="info-value">{kafkaStats.tiempo_promedio_procesamiento}s</span>
+                  </div>
+                )}
+                {kafkaStats.primer_mensaje && (
+                  <div className="kafka-info-item">
+                    <span className="info-label">🕐 Primer mensaje:</span>
+                    <span className="info-value">{formatDate(kafkaStats.primer_mensaje)}</span>
+                  </div>
+                )}
+                {kafkaStats.ultimo_mensaje && (
+                  <div className="kafka-info-item">
+                    <span className="info-label">🕐 Último mensaje:</span>
+                    <span className="info-value">{formatDate(kafkaStats.ultimo_mensaje)}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Alertas de estado del consumer */}
+              {kafkaStats.pendientes > 10 && (
+                <div className="kafka-alert warning">
+                  <strong>⚠️ Atención:</strong> Hay {kafkaStats.pendientes} mensajes pendientes. 
+                  El History Consumer Service puede estar detenido. Los mensajes se procesarán cuando se reinicie el servicio.
+                </div>
+              )}
+              {kafkaStats.errores > 5 && (
+                <div className="kafka-alert error">
+                  <strong>❌ Error:</strong> Se detectaron {kafkaStats.errores} mensajes con errores. 
+                  Revise los logs del History Consumer Service para más detalles.
+                </div>
+              )}
+              {kafkaStats.pendientes === 0 && kafkaStats.total > 0 && (
+                <div className="kafka-alert success">
+                  <strong>✅ Todo OK:</strong> Todos los mensajes han sido procesados correctamente.
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 
