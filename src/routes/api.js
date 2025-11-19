@@ -178,6 +178,12 @@ router.get('/historial/stats',
     asyncHandler(historialController.getHistorialStats)
 );
 
+// Obtener estadísticas de Kafka (mensajes pendientes)
+router.get('/historial/kafka-stats',
+    consultLimiter,
+    asyncHandler(historialController.getKafkaStats)
+);
+
 // Obtener historial de una entidad específica
 router.get('/historial/:entidad/:id',
     consultLimiter,

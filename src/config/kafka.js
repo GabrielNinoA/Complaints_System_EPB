@@ -1,9 +1,5 @@
 const { Kafka, logLevel } = require('kafkajs');
 
-/**
- * Configuración de Kafka para el sistema de quejas
- * Gestiona la conexión con Kafka y la configuración de producers/consumers
- */
 class KafkaConfig {
     constructor() {
         this.kafka = new Kafka({
