@@ -34,6 +34,13 @@ const Layout = ({ children }) => {
       key: 'reportes',
       icon: iconCheck,
       requiresAuth: false
+    },
+    { 
+      path: '/historial', 
+      label: 'Historial de Auditoría', 
+      key: 'historial',
+      icon: iconCheck,
+      requiresAuth: false
     }
   ];
 

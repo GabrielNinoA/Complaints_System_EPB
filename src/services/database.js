@@ -33,6 +33,10 @@ class DatabaseService {
         return await repository.close();
     }
 
+    async execute(query, params = []) {
+        return await repository.execute(query, params);
+    }
+
     async getAllEntidades() {
         return await repository.findAllEntidades();
     }

@@ -1,9 +1,6 @@
 import React, { useState } from 'react';
-import MathCaptcha from '../components/MathCaptcha';
 
 const Reports = () => {
-  const [captchaValid, setCaptchaValid] = useState(false);
-  const [captchaReset, setCaptchaReset] = useState(0);
   const [showReports, setShowReports] = useState(false);
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -12,12 +9,6 @@ const Reports = () => {
   const [estadisticas, setEstadisticas] = useState(null);
 
   const handleShowReports = async () => {
-    if (!captchaValid) {
-      setMessage('Por favor, resuelve el captcha antes de continuar.');
-      setMessageType('error');
-      return;
-    }
-
     setLoading(true);
     setMessage('');
     setMessageType('');
@@ -214,7 +205,6 @@ const Reports = () => {
             setReports([]);
             setEstadisticas(null);
             setMessage('');
-            setCaptchaReset(prev => prev + 1);
           }
         }, 'Volver')
       )
@@ -227,15 +217,8 @@ const Reports = () => {
     ),
     
     React.createElement('p', { className: 'page-description' },
-      'Para acceder a los reportes, por favor resuelve el captcha:'
+      'Accede a los reportes del sistema:'
     ),
-    
-    React.createElement(MathCaptcha, {
-      onValidate: setCaptchaValid,
-      isValid: captchaValid,
-      resetTrigger: captchaReset,
-      darkTheme: true
-    }),
     
     message && React.createElement('div', { 
       className: `message ${messageType}`,
@@ -253,7 +236,7 @@ const Reports = () => {
       React.createElement('button', {
         className: 'form-button',
         onClick: handleShowReports,
-        disabled: !captchaValid || loading
+        disabled: loading
       }, loading ? 'Cargando...' : 'Ver Reportes')
     )
   );

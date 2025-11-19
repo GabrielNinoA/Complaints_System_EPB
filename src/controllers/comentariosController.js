@@ -1,5 +1,6 @@
 const dbService = require('../services/database');
 const { ComentarioValidator, QueryValidator } = require('../validators');
+const auditService = require('../services/auditService');
 
 class ComentariosController {
     constructor() {
@@ -134,6 +135,9 @@ class ComentariosController {
 
             const nuevoComentario = await dbService.createComentario(comentarioData);
 
+            // Registrar auditoría de creación
+            await auditService.logCreate('comentarios', nuevoComentario.id, nuevoComentario, auditService.extractMetadata(req));
+
             return this.successResponse(res, nuevoComentario, 'Comentario creado exitosamente', 201);
         } catch (error) {
             console.error('❌ Error creando comentario:', error.message);
@@ -159,13 +163,23 @@ class ComentariosController {
                 return this.errorResponse(res, 'El comentario no puede exceder 1000 caracteres', 400);
             }
 
-            const comentarioValidation = await this.validateResourceExists(idValidation.id, dbService.getComentarioById.bind(dbService), 'Comentario');
+            const comentarioValidation = await this.validateResourceExists(res, idValidation.id, dbService.getComentarioById.bind(dbService), 'Comentario');
             if (!comentarioValidation.exists) return comentarioValidation.error;
 
             const updated = await dbService.updateComentario(idValidation.id, texto.trim());
             
             if (updated) {
                 const comentarioActualizado = await dbService.getComentarioById(idValidation.id);
+                
+                // Registrar auditoría de actualización
+                await auditService.logUpdate(
+                    'comentarios',
+                    idValidation.id,
+                    { texto: comentarioValidation.resource.texto },
+                    { texto: texto.trim() },
+                    auditService.extractMetadata(req)
+                );
+                
                 return this.successResponse(res, comentarioActualizado, 'Comentario actualizado exitosamente');
             } else {
                 return this.errorResponse(res, 'No se pudo actualizar el comentario', 400);
@@ -187,6 +201,9 @@ class ComentariosController {
             const comentarioValidation = await this.validateResourceExists(res, validation.id, dbService.getComentarioById.bind(dbService), 'Comentario');
             if (!comentarioValidation.exists) return comentarioValidation.error;
 
+            // Registrar auditoría de eliminación
+            await auditService.logDelete('comentarios', validation.id, comentarioValidation.resource, auditService.extractMetadata(req));
+            
             const deleted = await dbService.deleteComentario(validation.id);
             
             if (deleted) {

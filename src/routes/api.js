@@ -6,6 +6,7 @@ const entidadesController = require('../controllers/entidadesController');
 const quejasController = require('../controllers/quejasController');
 const comentariosController = require('../controllers/comentariosController');
 const estadisticasController = require('../controllers/estadisticasController');
+const historialController = require('../controllers/historialController');
 
 // Importar middleware
 const { globalLimiter, complaintsLimiter, consultLimiter, adminLimiter } = require('../middleware/rateLimiter');
@@ -26,8 +27,7 @@ router.get('/', (req, res) => {
             quejas: '/api/quejas',
             comentarios: '/api/comentarios',
             estadisticas: '/api/estadisticas',
-            health: '/api/health',
-            testEmail: '/api/test-email'
+            health: '/api/health'
         },
         documentation: '/api/docs',
         timestamp: new Date().toISOString()
@@ -35,8 +35,6 @@ router.get('/', (req, res) => {
 });
 
 router.get('/health', asyncHandler(estadisticasController.healthCheck));
-
-router.get('/test-email', asyncHandler(estadisticasController.testEmail));
 
 // ==================== RUTAS DE ENTIDADES ====================
 
@@ -165,6 +163,32 @@ router.get('/auditoria/resumen', async (req, res) => {
         });
     }
 });
+
+// ==================== RUTAS DE HISTORIAL ====================
+
+// Obtener todo el historial con filtros y paginación
+router.get('/historial',
+    consultLimiter,
+    asyncHandler(historialController.getAllHistorial)
+);
+
+// Obtener estadísticas del historial
+router.get('/historial/stats',
+    consultLimiter,
+    asyncHandler(historialController.getHistorialStats)
+);
+
+// Obtener estadísticas de Kafka (mensajes pendientes)
+router.get('/historial/kafka-stats',
+    consultLimiter,
+    asyncHandler(historialController.getKafkaStats)
+);
+
+// Obtener historial de una entidad específica
+router.get('/historial/:entidad/:id',
+    consultLimiter,
+    asyncHandler(historialController.getHistorialByEntity)
+);
 
 // ==================== RUTAS DE COMPATIBILIDAD ====================
 
